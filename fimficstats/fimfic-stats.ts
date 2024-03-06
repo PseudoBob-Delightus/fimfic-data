@@ -7,14 +7,19 @@ import fs from "fs";
 await mane();
 
 async function mane() {
+
 	// API Bearer token is required to scrape the data.
 	const access_token = process.argv[2];
 	const api_domain = "https://www.fimfiction.net/api/v2/stories";
 	const stats_domain = "https://www.fimfiction.net/story/stats";
+
 	// Loop over IDs to scrape data.
 	for (let id = 551751; id < 552652; id++) {
-		// Set API status to 200.
+
+		// Set API and HTML status to 200.
 		let api_status = 200;
+		let html_status = 200;
+
 		// Get data from the API.
 		const api_json = await fetch(`${api_domain}/${id}`, {
 			method: "GET",
@@ -23,32 +28,42 @@ async function mane() {
 				"Content-Type": "application/json",
 			},
 		}).then((response) => {
+			api_status = response.status;
 			if (!response.ok) {
-				api_status = response.status;
 				console.error(`HTTP error! Status: ${response.status}`);
 			}
 			return response.json();
 		});
+
 		// Check for rate limiting.
 		if (api_status === 429) {
 			sleep(5000);
 			id = id - 1;
 			continue;
 		}
-		console.log(api_json);
+		
 		// Get html of the stats page.
-		const stats_html = await fetch(`${stats_domain}/${id}`).then((res) =>
-			res.text(),
-		);
+		const stats_html = await fetch(`${stats_domain}/${id}`).then((response) => {
+			html_status = response.status;
+			if (!response.ok) {
+				console.error(`HTTP error! Status: ${response.status}`);
+			}
+			return response.text();
+		});
+
 		// Checks to see if the story is deleted or unpublished.
-		if (!stats_html.includes('data-controller="story-stats"') && api_status === 404) {
-			console.warn("deleted story")
+		if (api_status === 404 && html_status === 404) {
+			console.warn("deleted story");
+			continue;
 		}
-		if (stats_html.includes('data-controller="story-stats"') && api_status === 404) {
-			console.warn("unpublished story")
+		else if (api_status === 404 && html_status === 200) {
+			console.warn("unpublished story");
+			// TODO: Add ID as unpublished and continue without scraping.
+			continue;
 		}
-		if (!stats_html.includes('data-controller="story-stats"')) continue;
+
 		// Format the historical data into JSON.
+		// Can probably replace this section with an HTML parser, will look into it soon.
 		const stats = stats_html
 			.split("\n")
 			.filter((l) =>
@@ -61,7 +76,7 @@ async function mane() {
 			.replace(/">$/, "")
 			.replaceAll("&quot;", '"');
 		
-		console.log(id, JSON.parse(stats));
+		console.log(api_json, id, JSON.parse(stats));
 		sleep(1000);
 	}
 }

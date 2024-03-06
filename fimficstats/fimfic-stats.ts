@@ -82,6 +82,21 @@ async function mane() {
 		const bookshelves = Number(document(books[0]).text().replace(/\D/g, ""));
 		const tracking = Number(document(books[1]).text().replace(/\D/g, ""));
 
+		// Get the number of referrals from each site from the HTML.
+		let referrals: Record<string, number> = {};
+
+		document('h1:contains("Referrals")')
+			.next("ul")
+			.find("li")
+			.each(function () {
+				const [site, count] = document(this).text().split(": ");
+				referrals[site] = Number(count);
+			});
+
+		if (Object.keys(referrals).length > 0) {
+			console.log(referrals);
+		}
+
 		// Log variables to console for testing.
 		console.log(rating, word_ranking, bookshelves, tracking);
 		console.log(id, api_json);

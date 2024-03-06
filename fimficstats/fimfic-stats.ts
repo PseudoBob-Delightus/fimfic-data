@@ -30,15 +30,12 @@ async function mane() {
 			},
 		}).then((response) => {
 			api_status = response.status;
-			if (!response.ok) {
-				console.error(`HTTP error! Status: ${response.status}`);
-			}
 			return response.json();
 		});
 
 		// Check for rate limiting.
 		if (api_status === 429) {
-			sleep(start_time, Date.now(), 5000);
+			await sleep(start_time, Date.now(), 5000);
 			id = id - 1;
 			continue;
 		}
@@ -46,20 +43,17 @@ async function mane() {
 		// Get html of the stats page.
 		const stats_html = await fetch(`${stats_domain}/${id}`).then((response) => {
 			html_status = response.status;
-			if (!response.ok) {
-				console.error(`HTTP error! Status: ${response.status}`);
-			}
 			return response.text();
 		});
 
 		// Checks to see if the story is deleted or unpublished.
 		if (api_status === 404 && html_status === 404) {
 			console.warn("deleted story");
-			sleep(start_time, Date.now(), 1000);
+			await sleep(start_time, Date.now(), 1000);
 			continue;
 		} else if (api_status === 404 && html_status === 200) {
 			console.warn("unpublished story");
-			sleep(start_time, Date.now(), 1000);
+			await sleep(start_time, Date.now(), 1000);
 			// TODO: Add ID as unpublished and continue without scraping.
 			continue;
 		}
@@ -93,23 +87,23 @@ async function mane() {
 				referrals[site] = Number(count);
 			});
 
-		if (Object.keys(referrals).length > 0) {
-			console.log(referrals);
-		}
-
 		// Log variables to console for testing.
+		console.log(referrals);
 		console.log(rating, word_ranking, bookshelves, tracking);
 		console.log(id, api_json);
 		console.dir(JSON.parse(data!), { depth: null });
 
-		sleep(start_time, Date.now(), 1000);
+		await sleep(start_time, Date.now(), 1000);
 	}
 }
 
-function sleep(start_time: number, current_time: number, milliseconds: number) {
+function sleep(
+	start_time: number,
+	current_time: number,
+	milliseconds: number,
+): Promise<void> {
 	const elapsed_time = current_time - start_time;
-	console.log(elapsed_time);
-	if (elapsed_time > milliseconds) return;
-	const end_time = milliseconds - elapsed_time + current_time;
-	while (Date.now() < end_time) {}
+	if (elapsed_time > milliseconds) return Promise.resolve();
+	const remaining_time = milliseconds - elapsed_time;
+	return new Promise((res) => setTimeout(res, remaining_time));
 }

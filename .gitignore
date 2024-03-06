@@ -12,3 +12,4 @@
 login_metadata.json
 autorun.bat
 test_all.bat
+pytest.log

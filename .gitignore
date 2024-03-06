@@ -1,3 +1,14 @@
 # Pycharm
-__pycache__
+.idea
+
+# Caching
 */__pycache__
+*.pyc
+
+# Database
+*.db
+
+# User-specific
+login_metadata.json
+autorun.bat
+test_all.bat

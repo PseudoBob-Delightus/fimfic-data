@@ -1,4 +1,4 @@
-import util.util as util
+from fimficdata.common import util
 
 
 # TODO: Update this to include totalhits

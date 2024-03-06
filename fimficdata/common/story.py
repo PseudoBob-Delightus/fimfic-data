@@ -1,9 +1,9 @@
 import re
-from util import util
+from fimficdata.common import util
 import unicodedata
 import bs4.element
-from classes.author import Author
-from classes.tag import Tag
+from fimficdata.common.author import Author
+from fimficdata.common.tag import Tag
 from typing import List
 
 

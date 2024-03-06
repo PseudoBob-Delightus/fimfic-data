@@ -1,21 +1,24 @@
 import json
-import util.util as util
+from fimficdata.common import util, sql_patterns
 import time
 import re
 import sqlite3
-import sql_patterns
-import schedule
+import pathlib
 
 from datetime import datetime
+from random import randint
 
 import requests
 from bs4 import BeautifulSoup
 
-from classes.story import Story
-from classes.storylist import StoryList
+from fimficdata.common.story import Story
+from fimficdata.common.storylist import StoryList
+from fimficdata.schedulers.schedule import Schedule
 
 # Debug setting: avoids scheduler, just runs once & immediately
 RUN_ONCE = False
+# Debug setting: avoids running the scraper
+RUN_TEST = False
 
 # Number of minutes between cycles
 INTERVAL = 15
@@ -30,7 +33,9 @@ DELAY_BETWEEN_PAGES = 5
 # login_cookies = None
 # login_headers = None
 
-with open('login_metadata.json') as raw:
+project_root = str(pathlib.Path(__file__).parent.parent.parent) + '/'
+
+with open(project_root + 'login_metadata.json') as raw:
     parsed = json.load(raw)
     cookies = parsed['cookies']
     headers = parsed['headers']
@@ -161,7 +166,7 @@ def update():
     # timestamp = util.get_tenth_minute()
     timestamp = util.last_nth_minute(INTERVAL)
 
-    db = 'C:/Users/Brady/Dropbox/_Code/FimficData/fimfic.db'
+    db = project_root + 'fimfic-data.db'
     conn = None
     try:
         conn = sqlite3.connect(db)
@@ -206,17 +211,36 @@ def update():
 
 
 if RUN_ONCE:
-    update()
+    if RUN_TEST:
+        start_time = int(time.time())
+        time.sleep(randint(20, 30))
+        end_time = int(time.time())
+
+        print('Processing X stories at {0} took {1}s'
+              .format(datetime.utcfromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S'),
+                      end_time - start_time))
+    else:  # if not RUN_TEST
+        update()
 
 else:  # if not RUN_ONCE
+    sched = Schedule(interval=INTERVAL)
 
-    # TODO: Set up scheduling so the script will run close to the 15th minute - like 13:15:30, for example.
-    #       May require custom scheduling system.
+    if RUN_TEST:
+        print('The scheduled TEST is now running!')
 
-    schedule.every(INTERVAL).minutes.do(update)
+        sched.wait()
 
-    print('The scheduled task is now running!')
+        start_time = int(time.time())
+        time.sleep(randint(20, 30))
+        end_time = int(time.time())
 
-    while True:
-        schedule.run_pending()
-        time.sleep(INTERVAL)
+        print('Processing X stories at {0} took {1}s'
+              .format(datetime.utcfromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S'),
+                      end_time - start_time))
+
+    else:  # if not RUN_TEST
+        print('The scheduled task is now running!')
+
+        while True:
+            sched.wait()
+            update()

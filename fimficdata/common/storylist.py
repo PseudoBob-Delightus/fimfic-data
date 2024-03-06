@@ -1,4 +1,4 @@
-from classes.story import Story
+from fimficdata.common.story import Story
 from typing import Dict, List
 from statistics import mean
 

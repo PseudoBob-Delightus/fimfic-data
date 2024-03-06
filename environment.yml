@@ -1,8 +1,10 @@
-name: FimficData
+name: fimfic-data
 channels:
   - defaults
 dependencies:
   - python=3.8
+  - pip
   - requests
   - beautifulsoup4
-
+  - pytest
+  - pytest-mock

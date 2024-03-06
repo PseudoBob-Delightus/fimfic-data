@@ -66,7 +66,18 @@ async function mane() {
 		// Format the historical data into JSON.
 		const data = document(".layout-two-columns[data-data]").attr("data-data");
 
+		// Get the ranking and word count rankings from the HTML.
+		const rankings = document('h1:contains("Rankings")').next("ul").find("li");
+		const rating = Number(document(rankings[0]).text().replace(/\D/g, ""));
+		const word_ranking = Number(document(rankings[1]).text().replace(/\D/g, ""));
+
+		// Get the number of bookshelves and tracking from the HTML.
+		const books = document('h1:contains("Bookshelves")').next("ul").find("li");
+		const bookshelves = Number(document(books[0]).text().replace(/\D/g, ""));
+		const tracking = Number(document(books[1]).text().replace(/\D/g, ""));
+
 		// Log variables to console for testing.
+		console.log(rating, word_ranking, bookshelves, tracking);
 		console.log(id, api_json);
 		console.dir(JSON.parse(data!), { depth: null });
 

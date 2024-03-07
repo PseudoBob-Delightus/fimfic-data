@@ -2,8 +2,34 @@
 
 import "@total-typescript/ts-reset";
 import * as cheerio from "cheerio";
+import z from "zod";
 import * as plib from "./lib.ts";
 import fs from "fs";
+
+const stats_schema = z.object({
+	chapters: z.array(
+		z.object({
+			date: z.string(),
+			title: z.string(),
+			views: z.string(),
+			words: z.string(),
+			words_text: z.string(),
+			chapter_num: z.number(),
+		}),
+	),
+	stats: z.object({
+		data: z.array(
+			z.object({
+				views: z.number().optional(),
+				likes: z.number().optional(),
+				dislikes: z.number().optional(),
+				date: z.string(),
+			}),
+		),
+		first_chapter_date: z.string(),
+		last_chapter_date: z.string(),
+	}),
+});
 
 await mane();
 
@@ -91,7 +117,7 @@ async function mane() {
 		console.log(referrals);
 		console.log(rating, word_ranking, bookshelves, tracking);
 		console.log(id, api_json);
-		console.dir(JSON.parse(data!), { depth: null });
+		console.dir(stats_schema.parse(JSON.parse(data!)), { depth: null });
 
 		await sleep(start_time, Date.now(), 1000);
 	}

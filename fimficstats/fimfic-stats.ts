@@ -6,6 +6,7 @@ import z from "zod";
 import * as plib from "./lib.ts";
 import fs from "fs";
 
+// Schema for validating the JSON parsed from the HTML of the stats page.
 const stats_schema = z.object({
 	chapters: z.array(
 		z.object({
@@ -38,6 +39,9 @@ async function mane() {
 	const access_token = process.argv[2];
 	const api_domain = "https://www.fimfiction.net/api/v2/stories";
 	const stats_domain = "https://www.fimfiction.net/story/stats";
+
+	// Set a request interval to ensure API and HTTPS calls are rate limited.
+	const request_interval = 1000;
 
 	// Loop over IDs to scrape data.
 	for (let id = 551751; id < 552652; id++) {
@@ -75,11 +79,12 @@ async function mane() {
 		// Checks to see if the story is deleted or unpublished.
 		if (api_status === 404 && html_status === 404) {
 			console.warn("deleted story");
-			await sleep(start_time, Date.now(), 1000);
+			await sleep(start_time, Date.now(), request_interval);
+			// TODO: Add ID as deleted and continue without scraping.
 			continue;
 		} else if (api_status === 404 && html_status === 200) {
 			console.warn("unpublished story");
-			await sleep(start_time, Date.now(), 1000);
+			await sleep(start_time, Date.now(), request_interval);
 			// TODO: Add ID as unpublished and continue without scraping.
 			continue;
 		}
@@ -119,17 +124,17 @@ async function mane() {
 		console.log(id, api_json);
 		console.dir(stats_schema.parse(JSON.parse(data!)), { depth: null });
 
-		await sleep(start_time, Date.now(), 1000);
+		await sleep(start_time, Date.now(), request_interval);
 	}
 }
 
 function sleep(
 	start_time: number,
 	current_time: number,
-	milliseconds: number,
+	interval: number,
 ): Promise<void> {
 	const elapsed_time = current_time - start_time;
-	if (elapsed_time > milliseconds) return Promise.resolve();
-	const remaining_time = milliseconds - elapsed_time;
+	if (elapsed_time > interval) return Promise.resolve();
+	const remaining_time = interval - elapsed_time;
 	return new Promise((res) => setTimeout(res, remaining_time));
 }

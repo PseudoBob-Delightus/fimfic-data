@@ -6,6 +6,84 @@ import z from "zod";
 import * as plib from "./lib.ts";
 import fs from "fs";
 
+// Schema for the story API response.
+const api_schema = z.object({
+	data: z.object({
+		id: z.string(),
+		type: z.string(),
+		attributes: z.object({
+			title: z.string(),
+			short_description: z.string(),
+			description: z.string(),
+			description_html: z.string(),
+			date_modified: z.string(),
+			date_updated: z.string(),
+			date_published: z.string(),
+			published: z.boolean(),
+			cover_image: z
+				.object({
+					thumbnail: z.string(),
+					medium: z.string(),
+					large: z.string(),
+					full: z.string(),
+				})
+				.optional(),
+			color: z.object({
+				hex: z.string(),
+				rgb: z.array(z.number()).min(3).max(3),
+			}),
+			num_views: z.number(),
+			total_num_views: z.number(),
+			num_words: z.number(),
+			num_chapters: z.number(),
+			num_comments: z.number(),
+			rating: z.number(),
+			status: z.string(),
+			submitted: z.boolean(),
+			completion_status: z.string(),
+			content_rating: z.string(),
+			num_likes: z.number(),
+			num_dislikes: z.number(),
+		}),
+		relationships: z.object({
+			author: z.object({
+				data: z.object({
+					type: z.string(),
+					id: z.string(),
+				}),
+			}),
+			tags: z.object({
+				data: z.array(
+					z.object({
+						type: z.string(),
+						id: z.string(),
+					}),
+				),
+			}),
+		}),
+		links: z.object({
+			self: z.string(),
+		}),
+		meta: z.object({
+			url: z.string(),
+		}),
+	}),
+	included: z.array(
+		z.object({
+			id: z.string(),
+			type: z.string(),
+			attributes: z.object({
+				name: z.string(),
+				bio: z.string(),
+				bio_html: z.string(),
+				num_followers: z.number(),
+				num_stories: z.number(),
+				num_blog_posts: z.number(),
+			}),
+		}),
+	),
+});
+
 // Schema for validating the JSON parsed from the HTML of the stats page.
 const stats_schema = z.object({
 	chapters: z.array(
@@ -119,10 +197,10 @@ async function mane() {
 			});
 
 		// Log variables to console for testing.
-		console.log(referrals);
-		console.log(rating, word_ranking, bookshelves, tracking);
+		//console.log(referrals);
+		//console.log(rating, word_ranking, bookshelves, tracking);
 		console.log(id, api_json);
-		console.dir(stats_schema.parse(JSON.parse(data!)), { depth: null });
+		//console.dir(stats_schema.parse(JSON.parse(data!)), { depth: null });
 
 		await sleep(start_time, Date.now(), request_interval);
 	}

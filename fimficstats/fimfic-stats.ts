@@ -134,6 +134,14 @@ const stats_schema = z.object({
 	}),
 });
 
+type Tag = {
+	id: number;
+	title: string;
+	type: string;
+	href: string;
+	text: string;
+};
+
 await mane();
 
 async function mane() {
@@ -194,6 +202,19 @@ async function mane() {
 		// Load the HTML with Cheerio.
 		const document = cheerio.load(stats_html);
 
+		// Get the tag IDs and names.
+		let tags: Tag[] = [];
+		document("ul.story-tags li").each((index, listItem) => {
+			const tag = document(listItem).find("a");
+			tags.push({
+				id: Number(tag.attr("tag-id")),
+				title: tag.attr("title")!,
+				type: tag.attr("class")!,
+				href: tag.attr("href")!,
+				text: tag.text(),
+			});
+		});
+
 		// Format the historical data into JSON.
 		const data = document(".layout-two-columns[data-data]").attr("data-data");
 
@@ -221,10 +242,11 @@ async function mane() {
 			});
 
 		// Log variables to console for testing.
-		//console.log(referrals);
-		//console.log(rating, word_ranking, bookshelves, tracking);
+		console.log(tags);
+		console.log(referrals);
+		console.log(rating, word_ranking, bookshelves, tracking);
 		console.log(id, api_schema.parse(api_json));
-		//console.dir(stats_schema.parse(JSON.parse(data!)), { depth: null });
+		console.dir(stats_schema.parse(JSON.parse(data!)), { depth: null });
 
 		await sleep(start_time, Date.now(), request_interval);
 	}

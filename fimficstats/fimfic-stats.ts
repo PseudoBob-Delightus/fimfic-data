@@ -79,6 +79,30 @@ const api_schema = z.object({
 				num_followers: z.number(),
 				num_stories: z.number(),
 				num_blog_posts: z.number(),
+				avatar: z.object({
+					32: z.string(),
+					48: z.string(),
+					64: z.string(),
+					96: z.string(),
+					128: z.string(),
+					160: z.string(),
+					192: z.string(),
+					256: z.string(),
+					320: z.string(),
+					384: z.string(),
+					512: z.string(),
+				}),
+				color: z.object({
+					hex: z.string(),
+					rgb: z.array(z.number()).min(3).max(3),
+				}),
+				date_joined: z.string(),
+			}),
+			links: z.object({
+				self: z.string(),
+			}),
+			meta: z.object({
+				url: z.string(),
 			}),
 		}),
 	),
@@ -199,7 +223,7 @@ async function mane() {
 		// Log variables to console for testing.
 		//console.log(referrals);
 		//console.log(rating, word_ranking, bookshelves, tracking);
-		console.log(id, api_json);
+		console.log(id, api_schema.parse(api_json));
 		//console.dir(stats_schema.parse(JSON.parse(data!)), { depth: null });
 
 		await sleep(start_time, Date.now(), request_interval);

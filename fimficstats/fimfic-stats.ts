@@ -60,6 +60,14 @@ const api_schema = z.object({
 					}),
 				),
 			}),
+			prequel: z
+				.object({
+					data: z.object({
+						type: z.string(),
+						id: z.string(),
+					}),
+				})
+				.optional(),
 		}),
 		links: z.object({
 			self: z.string(),

@@ -78,6 +78,17 @@ async function mane() {
 		}
 
 		const api = api_schema.parse(api_json);
+		//console.dir(api, { depth: null });
+
+		db.query(
+			sql.insert_author(
+				Number(api.data.relationships.author.data.id),
+				api.included[0].attributes.name,
+				new Date(api.included[0].attributes.date_joined).getTime() / 1000,
+				api.included[0].attributes.num_followers,
+				api.included[0].attributes.num_blog_posts,
+			),
+		).run();
 
 		// Load the HTML with Cheerio.
 		const document = cheerio.load(stats_html);

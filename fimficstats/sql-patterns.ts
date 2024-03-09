@@ -23,6 +23,17 @@ export const authors_table = `CREATE TABLE IF NOT EXISTS Authors (
 	blogs               integer     NOT NULL
 )`;
 
+export function insert_author(
+	id: number,
+	name: string,
+	date_joined: number,
+	followers: number,
+	blogs: number,
+) {
+	return `INSERT OR IGNORE INTO Authors (id, name, date_joined, followers, blogs) 
+	VALUES (${id}, '${name}', ${date_joined}, ${followers}, ${blogs})`;
+}
+
 export const stories_table = `CREATE TABLE IF NOT EXISTS Stories (
 	id                  integer     PRIMARY KEY,
 	title               text        NOT NULL,

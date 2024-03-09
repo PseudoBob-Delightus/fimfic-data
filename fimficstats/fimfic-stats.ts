@@ -53,13 +53,6 @@ async function mane() {
 			return response.json();
 		});
 
-		// Check for rate limiting.
-		if (api_status === 429) {
-			await sleep(start_time, Date.now(), 5000);
-			id = id - 1;
-			continue;
-		}
-
 		// Get html of the stats page.
 		const stats_html = await fetch(`${stats_domain}/${id}`).then((response) => {
 			html_status = response.status;
@@ -84,6 +77,8 @@ async function mane() {
 			continue;
 		}
 
+		const api = api_schema.parse(api_json);
+
 		// Load the HTML with Cheerio.
 		const document = cheerio.load(stats_html);
 
@@ -101,7 +96,8 @@ async function mane() {
 		});
 
 		// Format the historical data into JSON.
-		const data = document(".layout-two-columns[data-data]").attr("data-data");
+		const data = document(".layout-two-columns[data-data]").attr("data-data")!;
+		const stats = stats_schema.parse(JSON.parse(data));
 
 		// Get the ranking and word count rankings from the HTML.
 		const rankings = document('h1:contains("Rankings")').next("ul").find("li");

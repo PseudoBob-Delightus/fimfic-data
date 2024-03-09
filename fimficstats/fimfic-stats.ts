@@ -7,6 +7,7 @@ import z from "zod";
 import * as sql from "./sql-patterns.ts";
 import * as plib from "./lib.ts";
 import fs from "fs";
+import { version } from "bun";
 
 const db = new Database("./fimfic-stats.db", { create: true });
 db.prepare(sql.story_index_table).run();
@@ -171,6 +172,8 @@ type Tag = {
 await mane();
 
 async function mane() {
+	const version = 1;
+
 	// API Bearer token is required to scrape the data.
 	const access_token = process.argv[2];
 	const api_domain = "https://www.fimfiction.net/api/v2/stories";
@@ -182,8 +185,9 @@ async function mane() {
 	// Loop over IDs to scrape data.
 	for (let id = 551751; id < 552652; id++) {
 		const start_time = Date.now();
+		let status = "unknown";
 
-		// Set API and HTML status to 200.
+		// Set API and HTML status to -1.
 		let api_status = -1;
 		let html_status = -1;
 
@@ -213,15 +217,20 @@ async function mane() {
 		});
 
 		// Checks to see if the story is deleted or unpublished.
-		if (api_status === 404 && html_status === 404) {
-			console.warn("deleted story");
-			await sleep(start_time, Date.now(), request_interval);
-			// TODO: Add ID as deleted and continue without scraping.
-			continue;
+		if (api_status === 200 && html_status === 200) {
+			status = "published";
+		} else if (api_status === 404 && html_status === 404) {
+			status = "deleted";
 		} else if (api_status === 404 && html_status === 200) {
-			console.warn("unpublished story");
+			status = "unpublished";
+		}
+
+		console.log(`${id}: ${status}`);
+		const table = sql.insert_story_index(id, status, version, start_time);
+		db.query(table).run();
+
+		if (status != "published") {
 			await sleep(start_time, Date.now(), request_interval);
-			// TODO: Add ID as unpublished and continue without scraping.
 			continue;
 		}
 
@@ -268,11 +277,11 @@ async function mane() {
 			});
 
 		// Log variables to console for testing.
-		console.log(tags);
-		console.log(referrals);
-		console.log(rating, word_ranking, bookshelves, tracking);
-		console.log(id, api_schema.parse(api_json));
-		console.dir(stats_schema.parse(JSON.parse(data!)), { depth: null });
+		//console.log(tags);
+		//console.log(referrals);
+		//console.log(rating, word_ranking, bookshelves, tracking);
+		//console.log(id, api_schema.parse(api_json));
+		//console.dir(stats_schema.parse(JSON.parse(data!)), { depth: null });
 
 		await sleep(start_time, Date.now(), request_interval);
 	}

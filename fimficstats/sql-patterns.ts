@@ -5,6 +5,16 @@ export const story_index_table = `CREATE TABLE IF NOT EXISTS Story_index (
 	timestamp           integer     NOT NULL
 )`;
 
+export function insert_story_index(
+	id: number,
+	status: string,
+	version: number,
+	timestamp: number,
+) {
+	return `INSERT OR IGNORE INTO Story_index (story_id, status, version, timestamp) 
+	VALUES (${id}, '${status}', ${version}, ${timestamp})`;
+}
+
 export const authors_table = `CREATE TABLE IF NOT EXISTS Authors (
 	id                  integer     PRIMARY KEY,
 	name                text        NOT NULL,

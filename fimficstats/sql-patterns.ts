@@ -3,14 +3,14 @@ export const index_table = `CREATE TABLE IF NOT EXISTS Index (
 	status              text        NOT NULL,
 	version             integer     NOT NULL,
 	timestamp           integer     NOT NULL
-)`
+)`;
 
 export const authors_table = `CREATE TABLE IF NOT EXISTS Authors (
 	id                  integer     PRIMARY KEY,
 	name                text        NOT NULL,
 	followers           integer     NOT NULL,
 	blogs               integer     NOT NULL
-)`
+)`;
 
 export const stories_table = `CREATE TABLE IF NOT EXISTS Stories (
 	id                  integer     PRIMARY KEY,
@@ -29,13 +29,14 @@ export const stories_table = `CREATE TABLE IF NOT EXISTS Stories (
 	likes               integer     NOT NULL,
 	dislikes            integer     NOT NULL,
 	author_id           integer     NOT NULL,
+	prequel_id          integer,
 
 	CONSTRAINT stories_author_id_fk FOREIGN KEY (author_id)
    	REFERENCES Authors (id),
 	
 	CONSTRAINT story_index_id_fk FOREIGN KEY (id)
    	REFERENCES Index (story_id)
-)`
+)`;
 
 export const tags_table = `CREATE TABLE IF NOT EXISTS Tags (
 	id                  integer     PRIMARY KEY,
@@ -43,7 +44,7 @@ export const tags_table = `CREATE TABLE IF NOT EXISTS Tags (
 	type                text        NOT NULL,
 	text                text        NOT NULL,
 	href                text        NOT NULL
-)`
+)`;
 
 export const tag_links_table = `CREATE TABLE IF NOT EXISTS Tags_links (
 	story_id            integer,
@@ -55,7 +56,7 @@ export const tag_links_table = `CREATE TABLE IF NOT EXISTS Tags_links (
 		REFERENCES Tags (id),
 
 	CONSTRAINT tag_links_pk PRIMARY KEY (story_id, tag_id)
-)`
+)`;
 
 export const chapters_table = `CREATE TABLE IF NOT EXISTS Chapters (
 	story_id            integer     NOT NULL,
@@ -70,7 +71,7 @@ export const chapters_table = `CREATE TABLE IF NOT EXISTS Chapters (
    	REFERENCES Stories (id),
 	
 	CONSTRAINT chapters_pk PRIMARY KEY (story_id, chapter_num)
-)`
+)`;
 
 export const stats_table = `CREATE TABLE IF NOT EXISTS Stats (
 	story_id            integer     NOT NULL,
@@ -83,12 +84,12 @@ export const stats_table = `CREATE TABLE IF NOT EXISTS Stats (
    	REFERENCES Stories (id),
 	
 	CONSTRAINT stats_pk PRIMARY KEY (story_id, date)
-)`
+)`;
 
 export const referral_sites_table = `CREATE TABLE IF NOT EXISTS Referral_sites (
 	id                  integer     PRIMARY KEY,
 	site                string      NOT NULL
-)`
+)`;
 
 export const referrals_table = `CREATE TABLE IF NOT EXISTS Referrals (
 	story_id            integer     NOT NULL,
@@ -102,4 +103,4 @@ export const referrals_table = `CREATE TABLE IF NOT EXISTS Referrals (
    	REFERENCES Referral_sites (id),
 	
 	CONSTRAINT referrals_pk PRIMARY KEY (story_id, referral_site_id)
-)`
+)`;

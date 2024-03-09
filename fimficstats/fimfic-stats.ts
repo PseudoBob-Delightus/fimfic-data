@@ -9,7 +9,7 @@ import * as plib from "./lib.ts";
 import fs from "fs";
 
 const db = new Database("./fimfic-stats.db", { create: true });
-db.prepare(sql.index_table).run();
+db.prepare(sql.story_index_table).run();
 db.prepare(sql.authors_table).run();
 db.prepare(sql.stories_table).run();
 db.prepare(sql.tags_table).run();

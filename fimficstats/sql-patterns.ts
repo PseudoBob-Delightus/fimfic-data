@@ -1,4 +1,4 @@
-export const index_table = `CREATE TABLE IF NOT EXISTS Index (
+export const story_index_table = `CREATE TABLE IF NOT EXISTS Story_index (
 	story_id            integer     PRIMARY KEY,
 	status              text        NOT NULL,
 	version             integer     NOT NULL,
@@ -35,7 +35,7 @@ export const stories_table = `CREATE TABLE IF NOT EXISTS Stories (
    	REFERENCES Authors (id),
 	
 	CONSTRAINT story_index_id_fk FOREIGN KEY (id)
-   	REFERENCES Index (story_id)
+   	REFERENCES Story_index (story_id)
 )`;
 
 export const tags_table = `CREATE TABLE IF NOT EXISTS Tags (

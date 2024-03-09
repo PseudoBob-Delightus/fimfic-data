@@ -1,10 +1,16 @@
 #!/usr/bin/env bun
 
 import "@total-typescript/ts-reset";
+import { Database } from "bun:sqlite";
 import * as cheerio from "cheerio";
 import z from "zod";
+import * as sql from "./sql-patterns.ts"
 import * as plib from "./lib.ts";
 import fs from "fs";
+
+const db = new Database("./fimfic-stats.db", { create: true });
+db.prepare(sql.authors_table).run();
+db.prepare(sql.stories_table).run();
 
 // Schema for the story API response.
 const api_schema = z.object({

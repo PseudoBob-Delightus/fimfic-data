@@ -127,6 +127,11 @@ const api_schema = z.object({
 			}),
 		}),
 	),
+	uri: z.string(),
+	method: z.string(),
+	debug: z.object({
+		duration: z.string(),
+	}),
 });
 
 // Schema for validating the JSON parsed from the HTML of the stats page.

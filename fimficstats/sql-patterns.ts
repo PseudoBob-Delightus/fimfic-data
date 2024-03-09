@@ -8,6 +8,7 @@ export const story_index_table = `CREATE TABLE IF NOT EXISTS Story_index (
 export const authors_table = `CREATE TABLE IF NOT EXISTS Authors (
 	id                  integer     PRIMARY KEY,
 	name                text        NOT NULL,
+	date_joined         integer     NOT NULL,
 	followers           integer     NOT NULL,
 	blogs               integer     NOT NULL
 )`;

@@ -93,7 +93,7 @@ async function mane() {
 		db.query(
 			sql.insert_story(
 				Number(api.data.id),
-				api.data.attributes.title,
+				format_quote_string(api.data.attributes.title),
 				new Date(api.data.attributes.date_modified).getTime() / 1000,
 				new Date(api.data.attributes.date_updated).getTime() / 1000,
 				new Date(api.data.attributes.date_published).getTime() / 1000,
@@ -177,4 +177,8 @@ function sleep(
 	if (elapsed_time > interval) return Promise.resolve();
 	const remaining_time = interval - elapsed_time;
 	return new Promise((res) => setTimeout(res, remaining_time));
+}
+
+function format_quote_string(text: string): string {
+	return text.replaceAll("\n", "\n\n").replaceAll("'", "''");
 }

@@ -90,6 +90,30 @@ async function mane() {
 			),
 		).run();
 
+		db.query(
+			sql.insert_story(
+				Number(api.data.id),
+				api.data.attributes.title,
+				new Date(api.data.attributes.date_modified).getTime() / 1000,
+				new Date(api.data.attributes.date_updated).getTime() / 1000,
+				new Date(api.data.attributes.date_published).getTime() / 1000,
+				!!api.data.attributes.cover_image ? 1 : 0,
+				api.data.attributes.color.hex,
+				api.data.attributes.num_views,
+				api.data.attributes.total_num_views,
+				api.data.attributes.num_comments,
+				api.data.attributes.rating,
+				api.data.attributes.completion_status,
+				api.data.attributes.content_rating,
+				api.data.attributes.num_likes,
+				api.data.attributes.num_dislikes,
+				Number(api.data.relationships.author.data.id),
+				!!api.data.relationships.prequel
+					? Number(api.data.relationships.prequel.data.id)
+					: "NULL",
+			),
+		).run();
+
 		// Load the HTML with Cheerio.
 		const document = cheerio.load(stats_html);
 

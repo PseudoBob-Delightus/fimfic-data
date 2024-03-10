@@ -60,6 +60,37 @@ export const stories_table = `CREATE TABLE IF NOT EXISTS Stories (
    	REFERENCES Story_index (story_id)
 )`;
 
+export function insert_story(
+	id: number,
+	title: string,
+	date_modified: number,
+	date_updated: number,
+	date_published: number,
+	cover: number,
+	color_hex: string,
+	views: number,
+	total_views: number,
+	num_comments: number,
+	rating: number,
+	completion_status: string,
+	content_rating: string,
+	likes: number,
+	dislikes: number,
+	author_id: number,
+	prequel_id: number | "NULL",
+) {
+	return `INSERT OR IGNORE INTO Stories (
+		id, title, date_modified, date_updated, date_published,
+		cover, color_hex, views, total_views, num_comments,
+		rating, completion_status, content_rating,
+		likes, dislikes, author_id, prequel_id)
+	VALUES (
+		${id}, '${title}', ${date_modified}, ${date_updated}, ${date_published},
+		${cover}, '${color_hex}', ${views}, ${total_views}, ${num_comments},
+		${rating}, '${completion_status}', '${content_rating}',
+		${likes}, ${dislikes}, ${author_id}, ${prequel_id})`;
+}
+
 export const tags_table = `CREATE TABLE IF NOT EXISTS Tags (
 	id                  integer     PRIMARY KEY,
 	title               text        NOT NULL,

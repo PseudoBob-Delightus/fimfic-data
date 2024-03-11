@@ -11,6 +11,8 @@ publish = false
 [dependencies]
 lazy_static = { version = "1.4.0" }
 reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = { version = "1.0.114", features = ["preserve_order"] }
 tokio = { version = "1", features = ["full"] }
 
 [profile.dev]

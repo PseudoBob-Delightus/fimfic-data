@@ -1,7 +1,10 @@
+use self::structs::Api;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Client;
 use std::time::{Duration, UNIX_EPOCH};
 use std::{env, thread, time};
+
+pub mod structs;
 
 #[derive(Debug)]
 enum Status {

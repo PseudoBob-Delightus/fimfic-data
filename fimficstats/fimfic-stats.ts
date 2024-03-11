@@ -170,10 +170,10 @@ async function mane() {
 			db.query(
 				sql.insert_tag(
 					tag.id,
-					tag.title,
-					tag.type.replace("tag-", ""),
-					tag.text,
-					tag.href.replace("/tag/", ""),
+					format_quote_string(tag.title),
+					format_quote_string(tag.type.replace("tag-", "")),
+					format_quote_string(tag.text),
+					format_quote_string(tag.href.replace("/tag/", "")),
 				),
 			).run();
 			db.query(sql.insert_tag_link(id, tag.id)).run();

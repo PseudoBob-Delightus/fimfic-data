@@ -141,7 +141,6 @@ export function insert_tag_link(story_id: number, tag_id: number) {
 export const chapters_table = `CREATE TABLE IF NOT EXISTS Chapters (
 	story_id            integer     NOT NULL,
 	chapter_num         integer     NOT NULL,
-	id                  integer,
 	title               text        NOT NULL,
 	date_modified       integer     NOT NULL,
 	views               integer     NOT NULL,
@@ -152,6 +151,22 @@ export const chapters_table = `CREATE TABLE IF NOT EXISTS Chapters (
 	
 	CONSTRAINT chapters_pk PRIMARY KEY (story_id, chapter_num)
 )`;
+
+export function insert_chapter(
+	story_id: number,
+	chapter_num: number,
+	title: string,
+	date_modified: number,
+	views: number,
+	words: number,
+) {
+	return `INSERT OR IGNORE INTO Chapters (
+		story_id, chapter_num, title,
+		date_modified, views, words) 
+	VALUES (
+		${story_id}, ${chapter_num}, '${title}',
+		${date_modified}, ${views}, ${words})`;
+}
 
 export const stats_table = `CREATE TABLE IF NOT EXISTS Stats (
 	story_id            integer     NOT NULL,

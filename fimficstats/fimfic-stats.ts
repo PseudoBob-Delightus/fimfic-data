@@ -174,6 +174,19 @@ async function mane() {
 			db.query(sql.insert_tag_link(id, tag.id)).run();
 		});
 
+		stats.chapters.forEach((chapter) => {
+			db.query(
+				sql.insert_chapter(
+					id,
+					chapter.chapter_num,
+					format_quote_string(chapter.title),
+					new Date(chapter.date).getTime() / 1000,
+					Number(chapter.views),
+					Number(chapter.words),
+				),
+			).run();
+		});
+
 		await sleep(start_time, Date.now(), request_interval);
 	}
 }

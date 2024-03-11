@@ -33,7 +33,7 @@ async function mane() {
 	const request_interval = 1000;
 
 	// Loop over IDs to scrape data.
-	for (let id = 551751; id < 552652; id++) {
+	for (let id = 551751; id <= 553110; id++) {
 		const start_time = Date.now();
 		let status = "unknown";
 
@@ -171,6 +171,7 @@ async function mane() {
 					tag.href.replace("/tag/", ""),
 				),
 			).run();
+			db.query(sql.insert_tag_link(id, tag.id)).run();
 		});
 
 		await sleep(start_time, Date.now(), request_interval);

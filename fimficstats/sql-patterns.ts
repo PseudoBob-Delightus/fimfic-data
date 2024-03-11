@@ -120,7 +120,7 @@ export function insert_tag(
 	VALUES (${id}, '${title}', '${type}', '${text}', '${href}')`;
 }
 
-export const tag_links_table = `CREATE TABLE IF NOT EXISTS Tags_links (
+export const tag_links_table = `CREATE TABLE IF NOT EXISTS Tag_links (
 	story_id            integer,
 	tag_id              integer,
 
@@ -132,6 +132,11 @@ export const tag_links_table = `CREATE TABLE IF NOT EXISTS Tags_links (
 
 	CONSTRAINT tag_links_pk PRIMARY KEY (story_id, tag_id)
 )`;
+
+export function insert_tag_link(story_id: number, tag_id: number) {
+	return `INSERT OR IGNORE INTO Tag_links (story_id, tag_id) 
+	VALUES (${story_id}, ${tag_id})`;
+}
 
 export const chapters_table = `CREATE TABLE IF NOT EXISTS Chapters (
 	story_id            integer     NOT NULL,

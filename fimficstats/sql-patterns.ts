@@ -109,12 +109,24 @@ export const tags_table = `CREATE TABLE IF NOT EXISTS Tags (
 	href                text        NOT NULL
 )`;
 
+export function insert_tag(
+	id: number,
+	title: string,
+	type: string,
+	text: string,
+	href: string,
+) {
+	return `INSERT OR IGNORE INTO Tags (id, title, type, text, href) 
+	VALUES (${id}, '${title}', '${type}', '${text}', '${href}')`;
+}
+
 export const tag_links_table = `CREATE TABLE IF NOT EXISTS Tags_links (
 	story_id            integer,
 	tag_id              integer,
 
 	CONSTRAINT tag_links_story_id_fk FOREIGN KEY (story_id)
 		REFERENCES Stories (id),
+
 	CONSTRAINT tag_links_tag_id_fk FOREIGN KEY (tag_id)
 		REFERENCES Tags (id),
 

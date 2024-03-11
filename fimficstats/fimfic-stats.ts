@@ -161,6 +161,18 @@ async function mane() {
 			),
 		).run();
 
+		tags.forEach((tag) => {
+			db.query(
+				sql.insert_tag(
+					tag.id,
+					tag.title,
+					tag.type.replace("tag-", ""),
+					tag.text,
+					tag.href.replace("/tag/", ""),
+				),
+			).run();
+		});
+
 		await sleep(start_time, Date.now(), request_interval);
 	}
 }
@@ -171,6 +183,7 @@ function sleep(
 	interval: number,
 ): Promise<void> {
 	const elapsed_time = current_time - start_time;
+	console.log(elapsed_time);
 	if (elapsed_time > interval) return Promise.resolve();
 	const remaining_time = interval - elapsed_time;
 	return new Promise((res) => setTimeout(res, remaining_time));

@@ -181,6 +181,19 @@ export const stats_table = `CREATE TABLE IF NOT EXISTS Stats (
 	CONSTRAINT stats_pk PRIMARY KEY (story_id, date)
 )`;
 
+export function insert_stats(
+	story_id: number,
+	date: number,
+	views: number | "NULL",
+	likes: number | "NULL",
+	dislikes: number | "NULL",
+) {
+	return `INSERT OR IGNORE INTO Stats (
+		story_id, date, views, likes, dislikes) 
+	VALUES (
+		${story_id}, ${date}, ${views}, ${likes}, ${dislikes})`;
+}
+
 export const referral_sites_table = `CREATE TABLE IF NOT EXISTS Referral_sites (
 	id                  integer     PRIMARY KEY,
 	site                string      NOT NULL

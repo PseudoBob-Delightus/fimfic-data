@@ -187,6 +187,18 @@ async function mane() {
 			).run();
 		});
 
+		stats.stats.data.forEach((day) => {
+			db.query(
+				sql.insert_stats(
+					id,
+					new Date(day.date).getTime() / 1000,
+					!!day.views ? day.views : "NULL",
+					!!day.likes ? day.likes : "NULL",
+					!!day.dislikes ? day.dislikes : "NULL",
+				),
+			).run();
+		});
+
 		await sleep(start_time, Date.now(), request_interval);
 	}
 }

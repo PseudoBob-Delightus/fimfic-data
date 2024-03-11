@@ -199,6 +199,10 @@ async function mane() {
 			).run();
 		});
 
+		for (const site in referrals) {
+			db.query(sql.insert_referral_site(site)).run();
+		}
+
 		await sleep(start_time, Date.now(), request_interval);
 	}
 }

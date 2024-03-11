@@ -196,8 +196,15 @@ export function insert_stats(
 
 export const referral_sites_table = `CREATE TABLE IF NOT EXISTS Referral_sites (
 	id                  integer     PRIMARY KEY,
-	site                string      NOT NULL
+	site                string      NOT NULL,
+
+	UNIQUE(site)
 )`;
+
+export function insert_referral_site(site: string) {
+	return `INSERT OR IGNORE INTO Referral_sites (site) 
+	VALUES ('${site}')`;
+}
 
 export const referrals_table = `CREATE TABLE IF NOT EXISTS Referrals (
 	story_id            integer     NOT NULL,

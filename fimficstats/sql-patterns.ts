@@ -206,6 +206,10 @@ export function insert_referral_site(site: string) {
 	VALUES ('${site}')`;
 }
 
+export function retrieve_referral_site_id(site: string) {
+	return `SELECT id FROM Referral_sites WHERE site = '${site}';`;
+}
+
 export const referrals_table = `CREATE TABLE IF NOT EXISTS Referrals (
 	story_id            integer     NOT NULL,
 	referral_site_id    integer     NOT NULL,
@@ -219,3 +223,14 @@ export const referrals_table = `CREATE TABLE IF NOT EXISTS Referrals (
 	
 	CONSTRAINT referrals_pk PRIMARY KEY (story_id, referral_site_id)
 )`;
+
+export function insert_referral(
+	story_id: number,
+	referral_site_id: number,
+	count: number,
+) {
+	return `INSERT OR IGNORE INTO Referrals (
+		story_id, referral_site_id, count) 
+	VALUES (
+		${story_id}, ${referral_site_id}, ${count})`;
+}

@@ -4,7 +4,12 @@ import "@total-typescript/ts-reset";
 import { Database } from "bun:sqlite";
 import * as cheerio from "cheerio";
 import * as sql from "./sql-patterns.ts";
-import { Tag, api_schema, stats_schema } from "./types-and-schema.ts";
+import {
+	Tag,
+	id_schema,
+	api_schema,
+	stats_schema,
+} from "./types-and-schema.ts";
 import * as plib from "./lib.ts";
 import fs from "fs";
 
@@ -201,6 +206,9 @@ async function mane() {
 
 		for (const site in referrals) {
 			db.query(sql.insert_referral_site(site)).run();
+			const site_id_json = db.query(sql.retrieve_referral_site_id(site)).get();
+			const site_id = id_schema.parse(site_id_json).id;
+			db.query(sql.insert_referral(id, site_id, referrals[site])).run();
 		}
 
 		await sleep(start_time, Date.now(), request_interval);

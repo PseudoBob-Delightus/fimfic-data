@@ -8,6 +8,10 @@ export type Tag = {
 	text: string;
 };
 
+export const id_schema = z.object({
+	id: z.number(),
+});
+
 // Schema for the story API response.
 export const api_schema = z.object({
 	data: z.object({

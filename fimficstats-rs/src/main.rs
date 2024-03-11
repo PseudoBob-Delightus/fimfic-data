@@ -1,8 +1,8 @@
 use self::structs::Api;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Client;
-use std::time::{Duration, UNIX_EPOCH};
-use std::{env, thread, time};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{env, time};
 
 pub mod structs;
 
@@ -52,14 +52,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		};
 
 		println!("{id}: {status:?}");
-		sleep(start_time, request_interval)
+		sleep(start_time, request_interval).await
 	}
 
 	Ok(())
 }
 
-fn sleep(start_time: u128, interval: u128) {
-	let current_time = time::SystemTime::now()
+async fn sleep(start_time: u128, interval: u128) {
+	let current_time = SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.unwrap()
 		.as_millis();
@@ -68,5 +68,5 @@ fn sleep(start_time: u128, interval: u128) {
 	if elapsed_time > interval {
 		return;
 	};
-	thread::sleep(Duration::from_millis((interval - elapsed_time) as u64));
+	tokio::time::sleep(Duration::from_millis((interval - elapsed_time) as u64)).await;
 }

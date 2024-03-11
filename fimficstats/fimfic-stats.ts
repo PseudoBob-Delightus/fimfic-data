@@ -38,7 +38,7 @@ async function mane() {
 	const request_interval = 1000;
 
 	// Loop over IDs to scrape data.
-	for (let id = 551751; id <= 553110; id++) {
+	for (let id = 1; id <= 2000; id++) {
 		const start_time = Date.now();
 		let status = "unknown";
 
@@ -88,7 +88,7 @@ async function mane() {
 		db.query(
 			sql.insert_author(
 				Number(api.data.relationships.author.data.id),
-				api.included[0].attributes.name,
+				format_quote_string(api.included[0].attributes.name),
 				new Date(api.included[0].attributes.date_joined).getTime() / 1000,
 				api.included[0].attributes.num_followers,
 				api.included[0].attributes.num_blog_posts,
@@ -135,7 +135,7 @@ async function mane() {
 			.find("li")
 			.each(function () {
 				const [site, count] = document(this).text().split(": ");
-				referrals[site] = Number(count);
+				referrals[site] = Number(count.replace(/\D/g, ""));
 			});
 
 		db.query(

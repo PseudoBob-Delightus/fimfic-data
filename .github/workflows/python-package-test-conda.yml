@@ -1,6 +1,9 @@
 name: Python Package Test using Conda
 run-name: ${{ github.actor }} has initiated a build test
-on: [push]
+on:
+  push:
+    branches-ignore:
+      - 3-fimfic-stats
 jobs:
   build-linux:
     name: Build and Test with Linux

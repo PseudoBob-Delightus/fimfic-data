@@ -101,7 +101,7 @@ struct DataLinks {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct DataMeta {
-	meta: String,
+	url: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -128,16 +128,27 @@ struct IncludedAttributes {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct AttributesAvatar {
+	#[serde(rename = "32")]
 	r32: String,
+	#[serde(rename = "48")]
 	r48: String,
+	#[serde(rename = "64")]
 	r64: String,
+	#[serde(rename = "96")]
 	r96: String,
+	#[serde(rename = "128")]
 	r128: String,
+	#[serde(rename = "160")]
 	r160: String,
+	#[serde(rename = "192")]
 	r192: String,
+	#[serde(rename = "256")]
 	r256: String,
+	#[serde(rename = "320")]
 	r320: String,
+	#[serde(rename = "384")]
 	r384: String,
+	#[serde(rename = "512")]
 	r512: String,
 }
 
@@ -155,7 +166,7 @@ struct IncludedLinks {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct IncludedMeta {
-	meta: String,
+	url: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

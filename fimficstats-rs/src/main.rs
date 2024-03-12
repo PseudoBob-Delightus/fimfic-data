@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	);
 	headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
-	for id in 1..=200 {
+	for id in 551751..=553110 {
 		let start_time = time::SystemTime::now()
 			.duration_since(UNIX_EPOCH)?
 			.as_millis();
@@ -50,6 +50,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			(false, false) => Status::Deleted,
 			(true, false) => unreachable!(),
 		};
+
+		match status {
+			 Status::Unpublished => continue,
+			 Status::Deleted => continue,
+			 _ => {},
+		}
 
 		let api = api_response.json::<Api>().await;
 		println!("{:#?}", api);

@@ -51,6 +51,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			(true, false) => unreachable!(),
 		};
 
+		let api = api_response.json::<Api>().await;
+		println!("{:#?}", api);
 		println!("{id}: {status:?}");
 		sleep(start_time, request_interval).await
 	}

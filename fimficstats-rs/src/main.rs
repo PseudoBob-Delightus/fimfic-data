@@ -70,7 +70,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				println!("{link}");
 			}
 		}
-		
+
+		let child_selector = Selector::parse("[data-story-id]").unwrap();
+
+		let also_liked_selector = Selector::parse("[data-tab='also-liked']").unwrap();
+		for parent in html.select(&also_liked_selector) {
+			for child in parent.select(&child_selector) {
+				if let Some(story_id) = child.value().attr("data-story-id") {
+					println!("Also liked: {story_id}");
+				}
+			}
+		}
+
+		let similar_selector = Selector::parse("[data-tab='similar']").unwrap();
+		for parent in html.select(&similar_selector) {
+			for child in parent.select(&child_selector) {
+				if let Some(story_id) = child.value().attr("data-story-id") {
+					println!("Similar: {story_id}");
+				}
+			}
+		}
+
 		let api = api_response.json::<Api>().await;
 		// println!("{:#?}", api);
 		println!("{id}: {status:?}");

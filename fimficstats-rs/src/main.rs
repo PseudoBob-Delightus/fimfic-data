@@ -1,6 +1,7 @@
 use self::structs::Api;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Client;
+use scraper::{Html, Selector};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{env, time};
 
@@ -19,6 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let api_domain = "https://www.fimfiction.net/api/v2/stories";
 	let stats_domain = "https://www.fimfiction.net/story/stats";
+	let story_domain = "https://www.fimfiction.net/story";
 
 	let token = &env::args().collect::<Vec<_>>()[1];
 	let client = Client::new();
@@ -52,13 +54,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		};
 
 		match status {
-			 Status::Unpublished => continue,
-			 Status::Deleted => continue,
-			 _ => {},
+			Status::Unpublished => continue,
+			Status::Deleted => continue,
+			_ => {}
 		}
 
+		let story_url = format!("{story_domain}/{id}");
+		let story_response = client.get(story_url).send().await?;
+
+		let html = Html::parse_document(&story_response.text().await?);
+		let selector = Selector::parse("a.source").unwrap();
+
+		if let Some(element) = html.select(&selector).next() {
+			if let Some(link) = element.value().attr("href") {
+				println!("{link}");
+			}
+		}
+		
 		let api = api_response.json::<Api>().await;
-		println!("{:#?}", api);
+		// println!("{:#?}", api);
 		println!("{id}: {status:?}");
 		sleep(start_time, request_interval).await
 	}
@@ -72,7 +86,6 @@ async fn sleep(start_time: u128, interval: u128) {
 		.unwrap()
 		.as_millis();
 	let elapsed_time = current_time - start_time;
-	println!("{elapsed_time}");
 	if elapsed_time > interval {
 		return;
 	};

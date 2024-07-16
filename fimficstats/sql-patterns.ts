@@ -55,6 +55,7 @@ export const stories_table = `CREATE TABLE IF NOT EXISTS Stories (
 	bookshelves         integer     NOT NULL,
 	tracking            integer     NOT NULL,
 	author_id           integer     NOT NULL,
+	cover_source        text,
 	prequel_id          integer,
 
 	CONSTRAINT stories_author_id_fk FOREIGN KEY (author_id)
@@ -85,20 +86,21 @@ export function insert_story(
 	bookshelves: number,
 	tracking: number,
 	author_id: number,
+	cover_source: number,
 	prequel_id: number | "NULL",
 ) {
 	return `INSERT OR IGNORE INTO Stories (
 		id, title, date_modified, date_updated, date_published,
 		cover, color_hex, views, total_views, num_comments,
 		rating, completion_status, content_rating,
-		likes, dislikes, ranking, word_ranking,
-		bookshelves, tracking, author_id, prequel_id)
+		likes, dislikes, ranking, word_ranking, bookshelves,
+		tracking, author_id, cover_source, prequel_id)
 	VALUES (
 		${id}, '${title}', ${date_modified}, ${date_updated}, ${date_published},
 		${cover}, '${color_hex}', ${views}, ${total_views}, ${num_comments},
 		${rating}, '${completion_status}', '${content_rating}',
-		${likes}, ${dislikes}, ${ranking}, ${word_ranking},
-		${bookshelves}, ${tracking}, ${author_id}, ${prequel_id})`;
+		${likes}, ${dislikes}, ${ranking}, ${word_ranking}, ${bookshelves},
+		${tracking}, ${author_id}, ${cover_source}, ${prequel_id})`;
 }
 
 export const tags_table = `CREATE TABLE IF NOT EXISTS Tags (

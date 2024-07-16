@@ -10,8 +10,6 @@ import {
 	api_schema,
 	stats_schema,
 } from "./types-and-schema.ts";
-import * as plib from "./lib.ts";
-import fs from "fs";
 
 const db = new Database("./fimfic-stats.db", { create: true });
 db.prepare(sql.story_index_table).run();
@@ -31,14 +29,16 @@ async function mane() {
 
 	// API Bearer token is required to scrape the data.
 	const access_token = process.argv[2];
+
 	const api_domain = "https://www.fimfiction.net/api/v2/stories";
 	const stats_domain = "https://www.fimfiction.net/story/stats";
+	const story_domain = "https://www.fimfiction.net/story";
 
 	// Set a request interval to ensure API and HTTPS calls are rate limited.
 	const request_interval = 1000;
 
 	// Loop over IDs to scrape data.
-	for (let id = 1; id <= 2000; id++) {
+	for (let id = 515381; id <= 515381 + 100; id++) {
 		const start_time = Date.now();
 		let status = "unknown";
 
@@ -74,6 +74,7 @@ async function mane() {
 		}
 
 		console.log(`${id}: ${status}`);
+
 		const table = sql.insert_story_index(id, status, version, start_time);
 		db.query(table).run();
 
@@ -82,8 +83,16 @@ async function mane() {
 			continue;
 		}
 
+		// Get html of the story page.
+		const story_html = await fetch(`${story_domain}/${id}`, {
+			headers: {
+				Cookie: "view_mature=true",
+			},
+		}).then((response) => {
+			return response.text();
+		});
+
 		const api = api_schema.parse(api_json);
-		//console.dir(api, { depth: null });
 
 		db.query(
 			sql.insert_author(
@@ -96,12 +105,17 @@ async function mane() {
 		).run();
 
 		// Load the HTML with Cheerio.
-		const document = cheerio.load(stats_html);
+		const story_document = cheerio.load(story_html);
+
+		const cover_source = !!story_document("a.source").attr("href") ? 1 : 0;
+
+		// Load the HTML with Cheerio.
+		const stats_document = cheerio.load(stats_html);
 
 		// Get the tag IDs and names.
 		let tags: Tag[] = [];
-		document("ul.story-tags li").each((index, listItem) => {
-			const tag = document(listItem).find("a");
+		stats_document("ul.story-tags li").each((index, listItem) => {
+			const tag = stats_document(listItem).find("a");
 			tags.push({
 				id: Number(tag.attr("tag-id")),
 				title: tag.attr("title")!,
@@ -112,29 +126,29 @@ async function mane() {
 		});
 
 		// Format the historical data into JSON.
-		const data = document(".layout-two-columns[data-data]").attr("data-data")!;
+		const data = stats_document(".layout-two-columns[data-data]").attr("data-data")!;
 		const stats = stats_schema.parse(JSON.parse(data));
 
 		// Get the ranking and word count rankings from the HTML.
-		const rankings = document('h1:contains("Rankings")').next("ul").find("li");
-		const ranking = Number(document(rankings[0]).text().replace(/\D/g, ""));
+		const rankings = stats_document('h1:contains("Rankings")').next("ul").find("li");
+		const ranking = Number(stats_document(rankings[0]).text().replace(/\D/g, ""));
 		const word_ranking = Number(
-			document(rankings[1]).text().replace(/\D/g, ""),
+			stats_document(rankings[1]).text().replace(/\D/g, ""),
 		);
 
 		// Get the number of bookshelves and tracking from the HTML.
-		const books = document('h1:contains("Bookshelves")').next("ul").find("li");
-		const bookshelves = Number(document(books[0]).text().replace(/\D/g, ""));
-		const tracking = Number(document(books[1]).text().replace(/\D/g, ""));
+		const books = stats_document('h1:contains("Bookshelves")').next("ul").find("li");
+		const bookshelves = Number(stats_document(books[0]).text().replace(/\D/g, ""));
+		const tracking = Number(stats_document(books[1]).text().replace(/\D/g, ""));
 
 		// Get the number of referrals from each site from the HTML.
 		let referrals: Record<string, number> = {};
 
-		document('h1:contains("Referrals")')
+		stats_document('h1:contains("Referrals")')
 			.next("ul")
 			.find("li")
 			.each(function () {
-				const [site, count] = document(this).text().split(": ");
+				const [site, count] = stats_document(this).text().split(": ");
 				referrals[site] = Number(count.replace(/\D/g, ""));
 			});
 
@@ -160,6 +174,7 @@ async function mane() {
 				bookshelves,
 				tracking,
 				Number(api.data.relationships.author.data.id),
+				cover_source,
 				!!api.data.relationships.prequel
 					? Number(api.data.relationships.prequel.data.id)
 					: "NULL",

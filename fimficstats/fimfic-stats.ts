@@ -41,6 +41,14 @@ async function mane() {
 
 	// Loop over IDs to scrape data.
 	for (let id = 560940; id <= 560940 + 100; id++) {
+		// Check if the story has already been scraped and skips if so.
+		let seen = db.query(sql.check_story_id(id)).get();
+		if (seen !== null) {
+			console.log(id + ": already seen");
+			continue;
+		}
+
+		// Set the start time and set the status to unknown.
 		const start_time = Date.now();
 		let status = "unknown";
 

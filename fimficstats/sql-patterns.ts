@@ -268,3 +268,7 @@ export function insert_similar(story_id: number, similar_id: number) {
 	return `INSERT OR IGNORE INTO Similar (story_id, similar_id) 
 	VALUES (${story_id}, ${similar_id})`;
 }
+
+export function check_story_id(story_id: number): string {
+	return `SELECT 1 FROM Story_index WHERE story_id = ${story_id} LIMIT 1`;
+}

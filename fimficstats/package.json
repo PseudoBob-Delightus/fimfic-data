@@ -11,27 +11,26 @@
 	"bin": {},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/SilkRose/Pony.git"
+		"url": "git+https://github.com/PseudoBob-Delightus/fimfic-data.git"
 	},
 	"contributors": [
 		"Silk Rose",
 		"Meadowsys"
 	],
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"bugs": {
-		"url": "https://github.com/SilkRose/Pony/issues"
+		"url": "https://github.com/PseudoBob-Delightus/fimfic-data/issues"
 	},
-	"homepage": "https://github.com/SilkRose/Pony#readme",
+	"homepage": "https://github.com/PseudoBob-Delightus/fimfic-data#readme",
 	"devDependencies": {
 		"@total-typescript/ts-reset": "^0.5.1",
 		"bun-types": "latest"
 	},
 	"peerDependencies": {
-		"typescript": "^5.2.2"
+		"typescript": "^5.5.3"
 	},
 	"dependencies": {
 		"cheerio": "^1.0.0-rc.12",
-		"node-html-markdown": "^1.3.0",
-		"zod": "^3.22.4"
+		"zod": "^3.23.8"
 	}
 }

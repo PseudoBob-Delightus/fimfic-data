@@ -46,6 +46,7 @@ export const stories_table = `CREATE TABLE IF NOT EXISTS Stories (
 	views               integer     NOT NULL,
 	total_views         integer     NOT NULL,
 	num_comments        integer     NOT NULL,
+	featured            integer     NOT NULL,
 	rating              integer     NOT NULL,
 	completion_status   text        NOT NULL,
 	content_rating      text        NOT NULL,
@@ -78,6 +79,7 @@ export function insert_story(
 	views: number,
 	total_views: number,
 	num_comments: number,
+	featured: number,
 	rating: number,
 	completion_status: string,
 	content_rating: string,
@@ -94,15 +96,15 @@ export function insert_story(
 	return `INSERT OR IGNORE INTO Stories (
 		id, title, date_modified, date_updated, date_published,
 		cover, cover_source, color_hex, views, total_views,
-		num_comments, rating, completion_status, content_rating,
-		likes, dislikes, ranking, word_ranking, bookshelves,
-		tracking, groups, author_id, prequel_id)
+		num_comments, featured, rating, completion_status,
+		content_rating, likes, dislikes, ranking, word_ranking,
+		bookshelves, tracking, groups, author_id, prequel_id)
 	VALUES (
 		${id}, '${title}', ${date_modified}, ${date_updated}, ${date_published},
 		${cover}, '${cover_source}', '${color_hex}', ${views}, ${total_views},
-		${num_comments}, ${rating}, '${completion_status}', '${content_rating}',
-		${likes}, ${dislikes}, ${ranking}, ${word_ranking}, ${bookshelves},
-		${tracking}, ${groups}, ${author_id}, ${prequel_id})`;
+		${num_comments}, ${featured}, ${rating}, '${completion_status}',
+		'${content_rating}', ${likes}, ${dislikes}, ${ranking}, ${word_ranking},
+		${bookshelves}, ${tracking}, ${groups}, ${author_id}, ${prequel_id})`;
 }
 
 export const tags_table = `CREATE TABLE IF NOT EXISTS Tags (

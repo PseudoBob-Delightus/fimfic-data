@@ -7,6 +7,7 @@ import * as sql from "./sql-patterns.ts";
 import {
 	Tag,
 	Status,
+	Author,
 	id_schema,
 	api_schema,
 	stats_schema,
@@ -231,6 +232,7 @@ async function mane() {
 				api.data.attributes.num_views,
 				api.data.attributes.total_num_views,
 				api.data.attributes.num_comments,
+				0,
 				api.data.attributes.rating,
 				api.data.attributes.completion_status,
 				api.data.attributes.content_rating,
@@ -302,6 +304,52 @@ async function mane() {
 		}
 
 		await sleep(start_time, Date.now(), request_interval);
+	}
+
+	let authors = db.query("SELECT name FROM Authors").all() as Author[];
+	for (const author of authors) {
+		const start_time = Date.now();
+
+		let name = author.name.toLowerCase().replaceAll(" ", "+");
+		const url = `https://www.fimfiction.net/stories?view_mode=2&q=bookshelf%3A1+author%3A${name}&page=1`;
+		// Get html of the featured page.
+		const featured_html = await fetch(url, {
+			headers: {
+				Cookie: "view_mature=true",
+			},
+		}).then((response) => {
+			return response.text();
+		});
+
+		// Load the HTML with Cheerio.
+		const featured_document = cheerio.load(featured_html);
+
+		// Check for no featured stories.
+		if (
+			featured_document(".message").text() ===
+			"No stories were found matching your search"
+		) {
+			continue;
+		}
+
+		// Get the number of pages.
+		let pages = featured_document(".page_list ul li a")
+			.map((_, list_item) => {
+				return Number(featured_document(list_item).text());
+			})
+			.get()
+			.filter((i) => i > 0);
+		console.log(author.name, pages[pages.length - 1]);
+
+		// Get the featured stories.
+		const stories = featured_document(".story-card-container")
+			.map((_, list_item) => {
+				return Number(featured_document(list_item).attr("data-story-id"));
+			})
+			.get();
+
+		await sleep(start_time, Date.now(), request_interval);
+		console.log(stories);
 	}
 }
 

@@ -8,6 +8,10 @@ export type Tag = {
 	text: string;
 };
 
+export type Author = {
+	name: string;
+};
+
 export type Status = "unknown" | "deleted" | "unpublished" | "published";
 
 export const id_schema = z.object({

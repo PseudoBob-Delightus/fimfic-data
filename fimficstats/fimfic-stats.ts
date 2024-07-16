@@ -21,6 +21,8 @@ db.prepare(sql.chapters_table).run();
 db.prepare(sql.stats_table).run();
 db.prepare(sql.referral_sites_table).run();
 db.prepare(sql.referrals_table).run();
+db.prepare(sql.also_liked_table).run();
+db.prepare(sql.similar_table).run();
 
 await mane();
 
@@ -38,7 +40,7 @@ async function mane() {
 	const request_interval = 1000;
 
 	// Loop over IDs to scrape data.
-	for (let id = 515381; id <= 515381 + 100; id++) {
+	for (let id = 560940; id <= 560940 + 100; id++) {
 		const start_time = Date.now();
 		let status = "unknown";
 
@@ -107,17 +109,39 @@ async function mane() {
 		// Load the HTML with Cheerio.
 		const story_document = cheerio.load(story_html);
 
+		// Get whether the story has a cover source link.
 		const cover_source = story_document("a.source").attr("href") || "NULL";
 
-		const groups = Number(story_document(".header-groups > span.count").text() || 0);
+		// Get the number of groups a story is in.
+		const groups = Number(
+			story_document(".header-groups > span.count").text() || 0,
+		);
+
+		// Get the also liked stories.
+		const also_liked = story_document(
+			"[data-tab='also-liked'] ul li .story-card-container",
+		)
+			.map((_, list_item) => {
+				return Number(story_document(list_item).attr("data-story-id"));
+			})
+			.get();
+
+		// Get the similar stories.
+		const similar = story_document(
+			"[data-tab='similar'] ul li .story-card-container",
+		)
+			.map((_, list_item) => {
+				return Number(story_document(list_item).attr("data-story-id"));
+			})
+			.get();
 
 		// Load the HTML with Cheerio.
 		const stats_document = cheerio.load(stats_html);
 
 		// Get the tag IDs and names.
 		let tags: Tag[] = [];
-		stats_document("ul.story-tags li").each((index, listItem) => {
-			const tag = stats_document(listItem).find("a");
+		stats_document("ul.story-tags li").each((_, list_item) => {
+			const tag = stats_document(list_item).find("a");
 			tags.push({
 				id: Number(tag.attr("tag-id")),
 				title: tag.attr("title")!,
@@ -128,19 +152,29 @@ async function mane() {
 		});
 
 		// Format the historical data into JSON.
-		const data = stats_document(".layout-two-columns[data-data]").attr("data-data")!;
+		const data = stats_document(".layout-two-columns[data-data]").attr(
+			"data-data",
+		)!;
 		const stats = stats_schema.parse(JSON.parse(data));
 
 		// Get the ranking and word count rankings from the HTML.
-		const rankings = stats_document('h1:contains("Rankings")').next("ul").find("li");
-		const ranking = Number(stats_document(rankings[0]).text().replace(/\D/g, ""));
+		const rankings = stats_document('h1:contains("Rankings")')
+			.next("ul")
+			.find("li");
+		const ranking = Number(
+			stats_document(rankings[0]).text().replace(/\D/g, ""),
+		);
 		const word_ranking = Number(
 			stats_document(rankings[1]).text().replace(/\D/g, ""),
 		);
 
 		// Get the number of bookshelves and tracking from the HTML.
-		const books = stats_document('h1:contains("Bookshelves")').next("ul").find("li");
-		const bookshelves = Number(stats_document(books[0]).text().replace(/\D/g, ""));
+		const books = stats_document('h1:contains("Bookshelves")')
+			.next("ul")
+			.find("li");
+		const bookshelves = Number(
+			stats_document(books[0]).text().replace(/\D/g, ""),
+		);
 		const tracking = Number(stats_document(books[1]).text().replace(/\D/g, ""));
 
 		// Get the number of referrals from each site from the HTML.
@@ -227,6 +261,14 @@ async function mane() {
 			const site_id_json = db.query(sql.retrieve_referral_site_id(site)).get();
 			const site_id = id_schema.parse(site_id_json).id;
 			db.query(sql.insert_referral(id, site_id, referrals[site])).run();
+		}
+
+		for (const also_liked_id of also_liked) {
+			db.query(sql.insert_also_liked(id, also_liked_id)).run();
+		}
+
+		for (const similar_id of similar) {
+			db.query(sql.insert_similar(id, similar_id)).run();
 		}
 
 		await sleep(start_time, Date.now(), request_interval);

@@ -238,3 +238,33 @@ export function insert_referral(
 	VALUES (
 		${story_id}, ${referral_site_id}, ${count})`;
 }
+
+export const also_liked_table = `CREATE TABLE IF NOT EXISTS Also_liked (
+	story_id            integer,
+	also_liked_id       integer,
+
+	CONSTRAINT also_liked_story_id_fk FOREIGN KEY (story_id)
+		REFERENCES Stories (id),
+
+	CONSTRAINT also_liked_pk PRIMARY KEY (story_id, also_liked_id)
+)`;
+
+export function insert_also_liked(story_id: number, also_liked_id: number) {
+	return `INSERT OR IGNORE INTO Also_liked (story_id, also_liked_id) 
+	VALUES (${story_id}, ${also_liked_id})`;
+}
+
+export const similar_table = `CREATE TABLE IF NOT EXISTS Similar (
+	story_id            integer,
+	similar_id          integer,
+
+	CONSTRAINT similar_story_id_fk FOREIGN KEY (story_id)
+		REFERENCES Stories (id),
+
+	CONSTRAINT similar_pk PRIMARY KEY (story_id, similar_id)
+)`;
+
+export function insert_similar(story_id: number, similar_id: number) {
+	return `INSERT OR IGNORE INTO Similar (story_id, similar_id) 
+	VALUES (${story_id}, ${similar_id})`;
+}

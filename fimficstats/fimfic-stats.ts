@@ -37,12 +37,16 @@ async function mane() {
 	const stats_domain = "https://www.fimfiction.net/story/stats";
 	const story_domain = "https://www.fimfiction.net/story";
 
-	// Set a request interval to ensure API and HTTPS calls are rate limited.
+	// Set request intervals to ensure API and HTTPS calls are rate limited.
 	const short_request_interval = 500;
 	const medium_request_interval = 1000;
 	const long_request_interval = 1500;
 
 	let request_interval = long_request_interval;
+
+	// Set the max number of consecutive deleted stories before stopping the script.
+	const max_endpoint = 512;
+	let current_endpoint = 0;
 
 	// Loop over IDs to scrape data.
 	for (let id = 560940; id <= 560940 + 100; id++) {
@@ -52,6 +56,9 @@ async function mane() {
 			console.log(id + ": already seen");
 			continue;
 		}
+
+		// End the script of we reach the max consecutive deleted stories.
+		if (current_endpoint > max_endpoint) break;
 
 		// Set the start time and set the status to unknown.
 		const start_time = Date.now();
@@ -96,12 +103,15 @@ async function mane() {
 		switch (status) {
 			case "published":
 				request_interval = long_request_interval;
+				current_endpoint = 0;
 				break;
 			case "deleted":
 				await sleep(start_time, Date.now(), short_request_interval);
+				current_endpoint++;
 				continue;
 			case "unpublished":
 				await sleep(start_time, Date.now(), medium_request_interval);
+				current_endpoint = 0;
 				continue;
 		}
 

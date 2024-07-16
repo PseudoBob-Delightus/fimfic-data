@@ -109,6 +109,8 @@ async function mane() {
 
 		const cover_source = story_document("a.source").attr("href") || "NULL";
 
+		const groups = Number(story_document(".header-groups > span.count").text() || 0);
+
 		// Load the HTML with Cheerio.
 		const stats_document = cheerio.load(stats_html);
 
@@ -174,6 +176,7 @@ async function mane() {
 				word_ranking,
 				bookshelves,
 				tracking,
+				groups,
 				Number(api.data.relationships.author.data.id),
 				!!api.data.relationships.prequel
 					? Number(api.data.relationships.prequel.data.id)

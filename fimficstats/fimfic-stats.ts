@@ -107,7 +107,7 @@ async function mane() {
 		// Load the HTML with Cheerio.
 		const story_document = cheerio.load(story_html);
 
-		const cover_source = !!story_document("a.source").attr("href") ? 1 : 0;
+		const cover_source = story_document("a.source").attr("href") || "NULL";
 
 		// Load the HTML with Cheerio.
 		const stats_document = cheerio.load(stats_html);
@@ -160,6 +160,7 @@ async function mane() {
 				new Date(api.data.attributes.date_updated).getTime() / 1000,
 				new Date(api.data.attributes.date_published).getTime() / 1000,
 				!!api.data.attributes.cover_image ? 1 : 0,
+				format_quote_string(cover_source),
 				api.data.attributes.color.hex,
 				api.data.attributes.num_views,
 				api.data.attributes.total_num_views,
@@ -174,7 +175,6 @@ async function mane() {
 				bookshelves,
 				tracking,
 				Number(api.data.relationships.author.data.id),
-				cover_source,
 				!!api.data.relationships.prequel
 					? Number(api.data.relationships.prequel.data.id)
 					: "NULL",

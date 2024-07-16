@@ -41,6 +41,7 @@ export const stories_table = `CREATE TABLE IF NOT EXISTS Stories (
 	date_updated        integer     NOT NULL,
 	date_published      integer     NOT NULL,
 	cover               integer     NOT NULL,
+	cover_source        text        NOT NULL,
 	color_hex           integer     NOT NULL,
 	views               integer     NOT NULL,
 	total_views         integer     NOT NULL,
@@ -55,7 +56,6 @@ export const stories_table = `CREATE TABLE IF NOT EXISTS Stories (
 	bookshelves         integer     NOT NULL,
 	tracking            integer     NOT NULL,
 	author_id           integer     NOT NULL,
-	cover_source        text,
 	prequel_id          integer,
 
 	CONSTRAINT stories_author_id_fk FOREIGN KEY (author_id)
@@ -72,6 +72,7 @@ export function insert_story(
 	date_updated: number,
 	date_published: number,
 	cover: number,
+	cover_source: string,
 	color_hex: string,
 	views: number,
 	total_views: number,
@@ -86,21 +87,20 @@ export function insert_story(
 	bookshelves: number,
 	tracking: number,
 	author_id: number,
-	cover_source: number,
 	prequel_id: number | "NULL",
 ) {
 	return `INSERT OR IGNORE INTO Stories (
 		id, title, date_modified, date_updated, date_published,
-		cover, color_hex, views, total_views, num_comments,
-		rating, completion_status, content_rating,
+		cover, cover_source, color_hex, views, total_views,
+		num_comments, rating, completion_status, content_rating,
 		likes, dislikes, ranking, word_ranking, bookshelves,
-		tracking, author_id, cover_source, prequel_id)
+		tracking, author_id, prequel_id)
 	VALUES (
 		${id}, '${title}', ${date_modified}, ${date_updated}, ${date_published},
-		${cover}, '${color_hex}', ${views}, ${total_views}, ${num_comments},
-		${rating}, '${completion_status}', '${content_rating}',
+		${cover}, '${cover_source}', '${color_hex}', ${views}, ${total_views},
+		${num_comments}, ${rating}, '${completion_status}', '${content_rating}',
 		${likes}, ${dislikes}, ${ranking}, ${word_ranking}, ${bookshelves},
-		${tracking}, ${author_id}, ${cover_source}, ${prequel_id})`;
+		${tracking}, ${author_id}, ${prequel_id})`;
 }
 
 export const tags_table = `CREATE TABLE IF NOT EXISTS Tags (

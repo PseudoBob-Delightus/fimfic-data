@@ -6,6 +6,7 @@ import * as cheerio from "cheerio";
 import * as sql from "./sql-patterns.ts";
 import {
 	Tag,
+	Status,
 	id_schema,
 	api_schema,
 	stats_schema,
@@ -37,7 +38,11 @@ async function mane() {
 	const story_domain = "https://www.fimfiction.net/story";
 
 	// Set a request interval to ensure API and HTTPS calls are rate limited.
-	const request_interval = 1000;
+	const short_request_interval = 500;
+	const medium_request_interval = 1000;
+	const long_request_interval = 1500;
+
+	let request_interval = long_request_interval;
 
 	// Loop over IDs to scrape data.
 	for (let id = 560940; id <= 560940 + 100; id++) {
@@ -50,7 +55,7 @@ async function mane() {
 
 		// Set the start time and set the status to unknown.
 		const start_time = Date.now();
-		let status = "unknown";
+		let status: Status = "unknown";
 
 		// Set API and HTML status to -1.
 		let api_status = -1;
@@ -88,9 +93,16 @@ async function mane() {
 		const table = sql.insert_story_index(id, status, version, start_time);
 		db.query(table).run();
 
-		if (status != "published") {
-			await sleep(start_time, Date.now(), request_interval);
-			continue;
+		switch (status) {
+			case "published":
+				request_interval = long_request_interval;
+				break;
+			case "deleted":
+				await sleep(start_time, Date.now(), short_request_interval);
+				continue;
+			case "unpublished":
+				await sleep(start_time, Date.now(), medium_request_interval);
+				continue;
 		}
 
 		// Get html of the story page.

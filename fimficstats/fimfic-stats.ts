@@ -311,15 +311,9 @@ async function mane() {
 		const start_time = Date.now();
 
 		let name = author.name.toLowerCase().replaceAll(" ", "+");
-		const url = `https://www.fimfiction.net/stories?view_mode=2&q=bookshelf%3A1+author%3A${name}&page=1`;
+
 		// Get html of the featured page.
-		const featured_html = await fetch(url, {
-			headers: {
-				Cookie: "view_mature=true",
-			},
-		}).then((response) => {
-			return response.text();
-		});
+		const featured_html = await request_featured(name, 1);
 
 		// Load the HTML with Cheerio.
 		const featured_document = cheerio.load(featured_html);
@@ -339,18 +333,38 @@ async function mane() {
 			})
 			.get()
 			.filter((i) => i > 0);
-		console.log(author.name, pages[pages.length - 1]);
-
-		// Get the featured stories.
-		const stories = featured_document(".story-card-container")
-			.map((_, list_item) => {
-				return Number(featured_document(list_item).attr("data-story-id"));
-			})
-			.get();
-
+		let page_num = pages[pages.length - 1];
+		console.log(page_num);
+		let stories = scrape_featured(featured_document);
 		await sleep(start_time, Date.now(), request_interval);
+		for (let i = 2; i <= page_num; i++) {
+			const start_time = Date.now();
+			const featured_html = await request_featured(name, i);
+			const featured_document = cheerio.load(featured_html);
+			stories = [...stories, ...scrape_featured(featured_document)];
+			await sleep(start_time, Date.now(), request_interval);
+		}
 		console.log(stories);
 	}
+}
+
+async function request_featured(name: string, page: number): Promise<string> {
+	const url = `https://www.fimfiction.net/stories?view_mode=2&q=bookshelf%3A1+author%3A${name}&page=${page}`;
+	return await fetch(url, {
+		headers: {
+			Cookie: "view_mature=true",
+		},
+	}).then((response) => {
+		return response.text();
+	});
+}
+
+function scrape_featured(document: cheerio.CheerioAPI): Number[] {
+	return document(".story-card-container")
+		.map((_, list_item) => {
+			return Number(document(list_item).attr("data-story-id"));
+		})
+		.get();
 }
 
 function sleep(

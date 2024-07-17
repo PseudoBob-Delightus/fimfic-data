@@ -329,7 +329,7 @@ async function mane() {
 		// Get the number of pages.
 		let pages = featured_document(".page_list ul li a")
 			.map((_, list_item) => {
-				return Number(featured_document(list_item).text());
+				return parseInt(featured_document(list_item).text());
 			})
 			.get()
 			.filter((i) => i > 0);
@@ -344,7 +344,14 @@ async function mane() {
 			stories = [...stories, ...scrape_featured(featured_document)];
 			await sleep(start_time, Date.now(), request_interval);
 		}
-		console.log(stories);
+		for (const id of stories) {
+			let seen = db.query(sql.check_story_id(id)).get();
+			if (seen !== null) {
+				db.query(sql.update_story_featured(id)).run();
+			} else {
+				console.log("Not seen: " + id);
+			}
+		}
 	}
 }
 
@@ -359,10 +366,10 @@ async function request_featured(name: string, page: number): Promise<string> {
 	});
 }
 
-function scrape_featured(document: cheerio.CheerioAPI): Number[] {
+function scrape_featured(document: cheerio.CheerioAPI): number[] {
 	return document(".story-card-container")
 		.map((_, list_item) => {
-			return Number(document(list_item).attr("data-story-id"));
+			return parseInt(document(list_item).attr("data-story-id")!);
 		})
 		.get();
 }

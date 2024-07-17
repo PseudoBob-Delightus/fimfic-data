@@ -274,3 +274,7 @@ export function insert_similar(story_id: number, similar_id: number) {
 export function check_story_id(story_id: number): string {
 	return `SELECT 1 FROM Story_index WHERE story_id = ${story_id} LIMIT 1`;
 }
+
+export function update_story_featured(story_id: number): string {
+	return `UPDATE Stories SET featured = 1 WHERE id = ${story_id}`;
+}

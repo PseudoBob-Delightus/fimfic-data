@@ -154,7 +154,7 @@ export const stats_schema = z.object({
 				date: z.string(),
 			}),
 		),
-		first_chapter_date: z.string(),
-		last_chapter_date: z.string(),
+		first_chapter_date: z.union([z.string(), z.number()]),
+		last_chapter_date: z.union([z.string(), z.number()]),
 	}),
 });

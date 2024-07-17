@@ -50,7 +50,7 @@ async function mane() {
 	let current_endpoint = 0;
 
 	// Loop over IDs to scrape data.
-	for (let id = 560940; id <= 560940 + 100; id++) {
+	for (let id = 1; id < 1 + 1000; id++) {
 		// Check if the story has already been scraped and skips if so.
 		let seen = db.query(sql.check_story_id(id)).get();
 		if (seen !== null) {

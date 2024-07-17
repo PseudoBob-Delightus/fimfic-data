@@ -306,14 +306,12 @@ async function mane() {
 		await sleep(start_time, Date.now(), request_interval);
 	}
 
-	let authors = db.query("SELECT name FROM Authors").all() as Author[];
+	let authors = db.query("SELECT id FROM Authors").all() as Author[];
 	for (const author of authors) {
 		const start_time = Date.now();
 
-		let name = author.name.toLowerCase().replaceAll(" ", "+");
-
 		// Get html of the featured page.
-		const featured_html = await request_featured(name, 1);
+		const featured_html = await request_featured(author.id, 1);
 
 		// Load the HTML with Cheerio.
 		const featured_document = cheerio.load(featured_html);
@@ -339,7 +337,7 @@ async function mane() {
 		await sleep(start_time, Date.now(), request_interval);
 		for (let i = 2; i <= page_num; i++) {
 			const start_time = Date.now();
-			const featured_html = await request_featured(name, i);
+			const featured_html = await request_featured(author.id, i);
 			const featured_document = cheerio.load(featured_html);
 			stories = [...stories, ...scrape_featured(featured_document)];
 			await sleep(start_time, Date.now(), request_interval);
@@ -355,8 +353,8 @@ async function mane() {
 	}
 }
 
-async function request_featured(name: string, page: number): Promise<string> {
-	const url = `https://www.fimfiction.net/stories?view_mode=2&q=bookshelf%3A1+author%3A${name}&page=${page}`;
+async function request_featured(id: number, page: number): Promise<string> {
+	const url = `https://www.fimfiction.net/user/${id}//stories?view_mode=2&q=bookshelf%3A1&page=${page}`;
 	return await fetch(url, {
 		headers: {
 			Cookie: "view_mature=true",

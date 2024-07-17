@@ -9,7 +9,7 @@ export type Tag = {
 };
 
 export type Author = {
-	name: string;
+	id: number;
 };
 
 export type Status = "unknown" | "deleted" | "unpublished" | "published";

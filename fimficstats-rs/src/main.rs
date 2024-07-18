@@ -1,10 +1,10 @@
 use self::structs::Api;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
-use reqwest::Client;
+use reqwest::{Client, Response};
 use scraper::{Html, Selector};
+use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::{env, time};
 
 pub mod structs;
 
@@ -14,6 +14,9 @@ enum Status {
 	Unpublished,
 	Deleted,
 }
+
+const INTERVAL_STEP: u128 = 4000;
+const INTERVAL_MAX: u128 = 120000;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -28,23 +31,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let (site_client, site_headers) = setup_site_client()?;
 
 	for id in 1..=1000 {
-		let start_time = time::SystemTime::now()
-			.duration_since(UNIX_EPOCH)?
-			.as_millis();
+		let start_time = unix_time()?;
 
 		let api_url = format!("{api_domain}/{id}");
-		let api_response = api_client
-			.get(api_url)
-			.headers(api_headers.clone())
-			.send()
-			.await?;
+		let api_response = handle_request(
+			request_interval,
+			api_client.clone(),
+			api_headers.clone(),
+			&api_url,
+		)
+		.await?;
 
 		let stats_url = format!("{stats_domain}/{id}");
-		let stats_response = site_client
-			.get(stats_url)
-			.headers(site_headers.clone())
-			.send()
-			.await?;
+		let stats_response = handle_request(
+			request_interval,
+			site_client.clone(),
+			site_headers.clone(),
+			&stats_url,
+		)
+		.await?;
 
 		let status = match (
 			api_response.status().is_success(),
@@ -63,11 +68,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		}
 
 		let story_url = format!("{story_domain}/{id}");
-		let story_response = site_client
-			.get(story_url)
-			.headers(site_headers.clone())
-			.send()
-			.await?;
+		let story_response = handle_request(
+			request_interval,
+			site_client.clone(),
+			site_headers.clone(),
+			&story_url,
+		)
+		.await?;
 
 		let html = Html::parse_document(&story_response.text().await?);
 		let selector = Selector::parse("a.source").unwrap();
@@ -101,7 +108,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let _api = api_response.json::<Api>().await;
 		// println!("{:#?}", api);
 		println!("{id}: {status:?}");
-		sleep(start_time, request_interval).await
+		// sleep(start_time, request_interval).await?
 	}
 
 	Ok(())
@@ -125,14 +132,42 @@ fn setup_site_client() -> Result<(Client, HeaderMap), Box<dyn Error>> {
 	Ok((client, headers))
 }
 
-async fn sleep(start_time: u128, interval: u128) {
-	let current_time = SystemTime::now()
-		.duration_since(UNIX_EPOCH)
-		.unwrap()
-		.as_millis();
+async fn handle_request(
+	interval: u128, client: Client, headers: HeaderMap, url: &str,
+) -> Result<Response, Box<dyn Error>> {
+	let mut interval = interval;
+	loop {
+		let start_time = unix_time()?;
+		let res = send_http_request(client.clone(), headers.clone(), url).await;
+		sleep(start_time, interval).await?;
+		if res.is_ok() {
+			return res;
+		}
+		interval = if interval < INTERVAL_MAX {
+			interval + INTERVAL_STEP
+		} else {
+			INTERVAL_MAX
+		};
+		println!("Failed to send request to: {url}, next interval is: {interval} milliseconds.");
+	}
+}
+
+async fn send_http_request(
+	client: Client, headers: HeaderMap, url: &str,
+) -> Result<Response, Box<dyn Error>> {
+	Ok(client.get(url).headers(headers).send().await?)
+}
+
+async fn sleep(start_time: u128, interval: u128) -> Result<(), Box<dyn Error>> {
+	let current_time = unix_time()?;
 	let elapsed_time = current_time - start_time;
 	if elapsed_time > interval {
-		return;
+		return Ok(());
 	};
 	tokio::time::sleep(Duration::from_millis((interval - elapsed_time) as u64)).await;
+	Ok(())
+}
+
+fn unix_time() -> Result<u128, Box<dyn Error>> {
+	Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis())
 }

@@ -20,22 +20,37 @@ const INTERVAL_MAX: u128 = 120000;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-	let request_interval = 1000;
+	// Set request intervals to ensure API and HTTPS calls are rate limited.
+	let request_interval_short = 500;
+	let request_interval_meduim = 1000;
+	let request_interval_long = 1500;
+
+	// Set the max number of consecutive deleted stories before stopping the script.
+	let max_endpoint = 512;
+	let mut current_endpoint = 0;
 
 	let api_domain = "https://www.fimfiction.net/api/v2/stories";
 	let stats_domain = "https://www.fimfiction.net/story/stats";
 	let story_domain = "https://www.fimfiction.net/story";
 
+	// API Bearer token is required to scrape the data.
 	let token = &env::args().collect::<Vec<_>>()[1];
+
 	let (api_client, api_headers) = setup_api_client(token)?;
 	let (site_client, site_headers) = setup_site_client()?;
 
+	// Loop over IDs to scrape data.
 	for id in 1..=1000 {
+		// End the script of we reach the max consecutive deleted stories.
+		if current_endpoint > max_endpoint {
+			break;
+		}
+
 		let start_time = unix_time()?;
 
 		let api_url = format!("{api_domain}/{id}");
 		let api_response = handle_request(
-			request_interval,
+			request_interval_meduim,
 			api_client.clone(),
 			api_headers.clone(),
 			&api_url,
@@ -44,13 +59,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		let stats_url = format!("{stats_domain}/{id}");
 		let stats_response = handle_request(
-			request_interval,
+			request_interval_meduim,
 			site_client.clone(),
 			site_headers.clone(),
 			&stats_url,
 		)
 		.await?;
 
+		// Checks to see if the story is deleted or unpublished.
 		let status = match (
 			api_response.status().is_success(),
 			stats_response.status().is_success(),
@@ -62,14 +78,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		};
 
 		match status {
-			Status::Unpublished => continue,
-			Status::Deleted => continue,
-			_ => {}
+			Status::Deleted => {
+				sleep(start_time, request_interval_short).await?;
+				current_endpoint += 1;
+				continue;
+			}
+			Status::Unpublished => {
+				sleep(start_time, request_interval_meduim).await?;
+				current_endpoint = 0;
+				continue;
+			}
+			Status::Published => current_endpoint = 0,
 		}
 
 		let story_url = format!("{story_domain}/{id}");
 		let story_response = handle_request(
-			request_interval,
+			request_interval_meduim,
 			site_client.clone(),
 			site_headers.clone(),
 			&story_url,
@@ -108,7 +132,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let _api = api_response.json::<Api>().await;
 		// println!("{:#?}", api);
 		println!("{id}: {status:?}");
-		// sleep(start_time, request_interval).await?
+		sleep(start_time, request_interval_long).await?
 	}
 
 	Ok(())
@@ -139,10 +163,10 @@ async fn handle_request(
 	loop {
 		let start_time = unix_time()?;
 		let res = send_http_request(client.clone(), headers.clone(), url).await;
-		sleep(start_time, interval).await?;
 		if res.is_ok() {
 			return res;
 		}
+		sleep(start_time, interval).await?;
 		interval = if interval < INTERVAL_MAX {
 			interval + INTERVAL_STEP
 		} else {

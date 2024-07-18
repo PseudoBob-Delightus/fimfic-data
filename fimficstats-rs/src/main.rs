@@ -39,11 +39,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let (api_client, api_headers) = setup_api_client(token)?;
 	let (site_client, site_headers) = setup_site_client()?;
 
+	let mut times: Vec<u128> = Vec::with_capacity(1000);
+
 	// Loop over IDs to scrape data.
 	for id in 1..=1000 {
 		// End the script of we reach the max consecutive deleted stories.
 		if current_endpoint > max_endpoint {
 			break;
+		}
+
+		if !times.is_empty() {
+			let average = times.iter().sum::<u128>() / times.len() as u128;
+
+			println!(
+				"{:?}",
+				Duration::from_millis((average * (1000 - id)) as u64).as_secs()
+			);
 		}
 
 		let start_time = unix_time()?;
@@ -66,6 +77,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)
 		.await?;
 
+		let response_time = unix_time()?;
+
 		// Checks to see if the story is deleted or unpublished.
 		let status = match (
 			api_response.status().is_success(),
@@ -77,14 +90,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			(true, false) => unreachable!(),
 		};
 
+		println!("{id}: {status:?}");
+
 		match status {
 			Status::Deleted => {
 				sleep(start_time, request_interval_short).await?;
+				times.push(unix_time()? - start_time);
 				current_endpoint += 1;
 				continue;
 			}
 			Status::Unpublished => {
 				sleep(start_time, request_interval_meduim).await?;
+				times.push(unix_time()? - start_time);
 				current_endpoint = 0;
 				continue;
 			}
@@ -100,12 +117,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)
 		.await?;
 
+		let response_time = unix_time()?;
+
 		let html = Html::parse_document(&story_response.text().await?);
 		let selector = Selector::parse("a.source").unwrap();
 
 		if let Some(element) = html.select(&selector).next() {
 			if let Some(link) = element.value().attr("href") {
-				println!("{link}");
+				//println!("{link}");
 			}
 		}
 
@@ -115,7 +134,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		for parent in html.select(&also_liked_selector) {
 			for child in parent.select(&child_selector) {
 				if let Some(story_id) = child.value().attr("data-story-id") {
-					println!("Also liked: {story_id}");
+					//println!("Also liked: {story_id}");
 				}
 			}
 		}
@@ -124,15 +143,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		for parent in html.select(&similar_selector) {
 			for child in parent.select(&child_selector) {
 				if let Some(story_id) = child.value().attr("data-story-id") {
-					println!("Similar: {story_id}");
+					//println!("Similar: {story_id}");
 				}
 			}
 		}
 
 		let _api = api_response.json::<Api>().await;
 		// println!("{:#?}", api);
-		println!("{id}: {status:?}");
-		sleep(start_time, request_interval_long).await?
+
+		let sleep_time = unix_time()?;
+		sleep(start_time, request_interval_long).await?;
+		let end_time = unix_time()?;
+		times.push(end_time - start_time);
 	}
 
 	Ok(())

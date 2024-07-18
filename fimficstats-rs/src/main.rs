@@ -1,7 +1,8 @@
 use self::structs::Api;
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::Client;
 use scraper::{Html, Selector};
+use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{env, time};
 
@@ -15,7 +16,7 @@ enum Status {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn Error>> {
 	let request_interval = 1000;
 
 	let api_domain = "https://www.fimfiction.net/api/v2/stories";
@@ -23,25 +24,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let story_domain = "https://www.fimfiction.net/story";
 
 	let token = &env::args().collect::<Vec<_>>()[1];
-	let client = Client::new();
+	let (api_client, api_headers) = setup_api_client(token)?;
+	let (site_client, site_headers) = setup_site_client()?;
 
-	let mut headers = HeaderMap::new();
-	headers.insert(
-		AUTHORIZATION,
-		HeaderValue::from_str(&format!("Bearer {}", token))?,
-	);
-	headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-
-	for id in 551751..=553110 {
+	for id in 1..=1000 {
 		let start_time = time::SystemTime::now()
 			.duration_since(UNIX_EPOCH)?
 			.as_millis();
 
 		let api_url = format!("{api_domain}/{id}");
-		let api_response = client.get(api_url).headers(headers.clone()).send().await?;
+		let api_response = api_client
+			.get(api_url)
+			.headers(api_headers.clone())
+			.send()
+			.await?;
 
 		let stats_url = format!("{stats_domain}/{id}");
-		let stats_response = client.get(stats_url).send().await?;
+		let stats_response = site_client
+			.get(stats_url)
+			.headers(site_headers.clone())
+			.send()
+			.await?;
 
 		let status = match (
 			api_response.status().is_success(),
@@ -60,7 +63,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 
 		let story_url = format!("{story_domain}/{id}");
-		let story_response = client.get(story_url).send().await?;
+		let story_response = site_client
+			.get(story_url)
+			.headers(site_headers.clone())
+			.send()
+			.await?;
 
 		let html = Html::parse_document(&story_response.text().await?);
 		let selector = Selector::parse("a.source").unwrap();
@@ -91,13 +98,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			}
 		}
 
-		let api = api_response.json::<Api>().await;
+		let _api = api_response.json::<Api>().await;
 		// println!("{:#?}", api);
 		println!("{id}: {status:?}");
 		sleep(start_time, request_interval).await
 	}
 
 	Ok(())
+}
+
+fn setup_api_client(token: &String) -> Result<(Client, HeaderMap), Box<dyn Error>> {
+	let client = Client::new();
+	let mut headers = HeaderMap::new();
+	headers.insert(
+		AUTHORIZATION,
+		HeaderValue::from_str(&format!("Bearer {}", token))?,
+	);
+	headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+	Ok((client, headers))
+}
+
+fn setup_site_client() -> Result<(Client, HeaderMap), Box<dyn Error>> {
+	let client = Client::new();
+	let mut headers = HeaderMap::new();
+	headers.insert(COOKIE, HeaderValue::from_static("view_mature=true"));
+	Ok((client, headers))
 }
 
 async fn sleep(start_time: u128, interval: u128) {

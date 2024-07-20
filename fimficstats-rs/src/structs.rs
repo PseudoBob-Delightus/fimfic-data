@@ -2,174 +2,174 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Api {
-	data: ApiData,
-	included: Vec<ApiIncluded>,
-	uri: String,
-	method: String,
-	debug: ApiDebug,
+	pub data: ApiData,
+	pub included: Vec<ApiIncluded>,
+	pub uri: String,
+	pub method: String,
+	pub debug: ApiDebug,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ApiData {
-	id: String,
-	r#type: String,
-	attributes: DataAttributes,
-	relationships: DataRelationships,
-	links: DataLinks,
-	meta: DataMeta,
+pub struct ApiData {
+	pub id: String,
+	pub r#type: String,
+	pub attributes: DataAttributes,
+	pub relationships: DataRelationships,
+	pub links: DataLinks,
+	pub meta: DataMeta,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct DataAttributes {
-	title: String,
-	short_description: String,
-	description: String,
-	description_html: String,
-	date_modified: String,
-	date_updated: String,
-	date_published: String,
-	published: bool,
-	cover_image: Option<AttributesCoverImage>,
-	color: AttributesColor,
-	num_views: u32,
-	total_num_views: u32,
-	num_words: u32,
-	num_chapters: u32,
-	num_comments: u32,
-	rating: u32,
-	status: String,
-	submitted: bool,
-	completion_status: String,
-	content_rating: String,
-	num_likes: i32,
-	num_dislikes: i32,
+pub struct DataAttributes {
+	pub title: String,
+	pub short_description: String,
+	pub description: String,
+	pub description_html: String,
+	pub date_modified: String,
+	pub date_updated: String,
+	pub date_published: String,
+	pub published: bool,
+	pub cover_image: Option<AttributesCoverImage>,
+	pub color: AttributesColor,
+	pub num_views: u32,
+	pub total_num_views: u32,
+	pub num_words: u32,
+	pub num_chapters: u32,
+	pub num_comments: u32,
+	pub rating: u32,
+	pub status: String,
+	pub submitted: bool,
+	pub completion_status: String,
+	pub content_rating: String,
+	pub num_likes: i32,
+	pub num_dislikes: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct AttributesCoverImage {
-	thumbnail: String,
-	medium: String,
-	large: String,
-	full: String,
+pub struct AttributesCoverImage {
+	pub thumbnail: String,
+	pub medium: String,
+	pub large: String,
+	pub full: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct DataRelationships {
-	author: RelationshipAuthor,
-	tags: RelationshipTags,
-	prequel: Option<RelationshipPrequel>,
+pub struct DataRelationships {
+	pub author: RelationshipAuthor,
+	pub tags: RelationshipTags,
+	pub prequel: Option<RelationshipPrequel>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RelationshipAuthor {
-	data: AuthorData,
+pub struct RelationshipAuthor {
+	pub data: AuthorData,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct AuthorData {
-	r#type: String,
-	id: String,
+pub struct AuthorData {
+	pub r#type: String,
+	pub id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RelationshipTags {
-	data: Vec<TagData>,
+pub struct RelationshipTags {
+	pub data: Vec<TagData>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct TagData {
-	r#type: String,
-	id: String,
+pub struct TagData {
+	pub r#type: String,
+	pub id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RelationshipPrequel {
-	data: PrequelData,
+pub struct RelationshipPrequel {
+	pub data: PrequelData,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct PrequelData {
-	r#type: String,
-	id: String,
+pub struct PrequelData {
+	pub r#type: String,
+	pub id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct DataLinks {
+pub struct DataLinks {
 	#[serde(rename = "self")]
-	link: String,
+	pub link: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct DataMeta {
-	url: String,
+pub struct DataMeta {
+	pub url: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ApiIncluded {
-	id: String,
-	r#type: String,
-	attributes: IncludedAttributes,
-	links: IncludedLinks,
-	meta: IncludedMeta,
+pub struct ApiIncluded {
+	pub id: String,
+	pub r#type: String,
+	pub attributes: IncludedAttributes,
+	pub links: IncludedLinks,
+	pub meta: IncludedMeta,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct IncludedAttributes {
-	name: String,
-	bio: String,
-	bio_html: String,
-	num_followers: u32,
-	num_stories: u32,
-	num_blog_posts: u32,
-	avatar: AttributesAvatar,
-	color: AttributesColor,
-	date_joined: String,
+pub struct IncludedAttributes {
+	pub name: String,
+	pub bio: String,
+	pub bio_html: String,
+	pub num_followers: u32,
+	pub num_stories: u32,
+	pub num_blog_posts: u32,
+	pub avatar: AttributesAvatar,
+	pub color: AttributesColor,
+	pub date_joined: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct AttributesAvatar {
+pub struct AttributesAvatar {
 	#[serde(rename = "32")]
-	r32: String,
+	pub r32: String,
 	#[serde(rename = "48")]
-	r48: String,
+	pub r48: String,
 	#[serde(rename = "64")]
-	r64: String,
+	pub r64: String,
 	#[serde(rename = "96")]
-	r96: String,
+	pub r96: String,
 	#[serde(rename = "128")]
-	r128: String,
+	pub r128: String,
 	#[serde(rename = "160")]
-	r160: String,
+	pub r160: String,
 	#[serde(rename = "192")]
-	r192: String,
+	pub r192: String,
 	#[serde(rename = "256")]
-	r256: String,
+	pub r256: String,
 	#[serde(rename = "320")]
-	r320: String,
+	pub r320: String,
 	#[serde(rename = "384")]
-	r384: String,
+	pub r384: String,
 	#[serde(rename = "512")]
-	r512: String,
+	pub r512: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct AttributesColor {
-	hex: String,
-	rgb: (u32, u32, u32),
+pub struct AttributesColor {
+	pub hex: String,
+	pub rgb: (u32, u32, u32),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct IncludedLinks {
+pub struct IncludedLinks {
 	#[serde(rename = "self")]
-	link: String,
+	pub link: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct IncludedMeta {
-	url: String,
+pub struct IncludedMeta {
+	pub url: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ApiDebug {
-	duration: String,
+pub struct ApiDebug {
+	pub duration: String,
 }

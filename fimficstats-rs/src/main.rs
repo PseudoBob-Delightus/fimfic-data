@@ -22,6 +22,8 @@ const INTERVAL_MAX: u128 = 120000;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+	let program_start = unix_time()?;
+
 	// Set request intervals to ensure API and HTTPS calls are rate limited.
 	let request_interval_short = 500;
 	let request_interval_meduim = 1000;
@@ -193,6 +195,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		times.push(end_time - start_time);
 	}
 	println!("Unpublished shared stories: {shared}");
+
+	let program_end = unix_time()?;
+	let time = format_milliseconds(program_end - program_start, None)?;
+	println!("Total runtime: {time}");
 	Ok(())
 }
 

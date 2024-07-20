@@ -1,5 +1,6 @@
 use self::structs::Api;
 use pony::time::format_milliseconds;
+use pony::traits::OrderedVector;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
 use scraper::{Html, Selector};
@@ -30,9 +31,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let max_endpoint = 512;
 	let mut current_endpoint = 0;
 
-	let api_domain = "https://www.fimfiction.net/api/v2/stories";
-	let stats_domain = "https://www.fimfiction.net/story/stats";
-	let story_domain = "https://www.fimfiction.net/story";
+	let fimfic = "https://www.fimfiction.net";
+	let latest_domain = format!("{fimfic}/stories?view_mode=2&sort=latest");
+	let api_domain = format!("{fimfic}/api/v2/stories");
+	let stats_domain = format!("{fimfic}/story/stats");
+	let story_domain = format!("{fimfic}/story");
 
 	// API Bearer token is required to scrape the data.
 	let token = &env::args().collect::<Vec<_>>()[1];
@@ -44,7 +47,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	let start = 1;
 	let end = 1 + 1000;
-	let end_id = 550_000;
+	//let end_id = 550_000;
+
+	let ending_id = get_end_id(
+		&latest_domain,
+		request_interval_meduim,
+		site_client.clone(),
+		site_headers.clone(),
+	)
+	.await?;
+	println!("{ending_id:?}");
 
 	// Loop over IDs to scrape data.
 	for id in start..=end {
@@ -61,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			);
 			println!(
 				"test time: {}",
-				format_milliseconds(average * (end_id - id), None)?
+				format_milliseconds(average * (ending_id.unwrap() as u128 - id), None)?
 			);
 		}
 
@@ -224,4 +236,19 @@ async fn sleep(start_time: u128, interval: u128) -> Result<(), Box<dyn Error>> {
 
 fn unix_time() -> Result<u128, Box<dyn Error>> {
 	Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis())
+}
+
+async fn get_end_id(
+	url: &str, interval: u128, client: Client, headers: HeaderMap,
+) -> Result<Option<u32>, Box<dyn Error>> {
+	let response = handle_request(interval, client.clone(), headers.clone(), url).await?;
+	let html = Html::parse_document(&response.text().await?);
+	let selector = Selector::parse("[data-story-id]").unwrap();
+	let mut ids = Vec::with_capacity(60);
+	for element in html.select(&selector) {
+		if let Some(story_id) = element.value().attr("data-story-id") {
+			ids.push(story_id.parse::<u32>()?)
+		}
+	}
+	Ok(ids.sort_vec().last().cloned())
 }

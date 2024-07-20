@@ -4,9 +4,9 @@ use pony::traits::OrderedVector;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
 use scraper::{Html, Selector};
-use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{env, fs};
 
 pub mod structs;
 
@@ -40,14 +40,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	// API Bearer token is required to scrape the data.
 	let token = &env::args().collect::<Vec<_>>()[1];
 
+	// Cookie to view mature
+	let cookie = fs::read_to_string("cookie.txt")?;
+
 	let (api_client, api_headers) = setup_api_client(token)?;
-	let (site_client, site_headers) = setup_site_client()?;
+	let (site_client, site_headers) = setup_site_client(&cookie)?;
 
 	let mut times: Vec<u128> = Vec::with_capacity(1000);
 
 	let start = 1;
 	let end = 1 + 1000;
-	//let end_id = 550_000;
 
 	let ending_id = get_end_id(
 		&latest_domain,
@@ -57,6 +59,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	)
 	.await?;
 	println!("{ending_id:?}");
+
+	let mut shared = 0;
 
 	// Loop over IDs to scrape data.
 	for id in start..=end {
@@ -97,7 +101,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)
 		.await?;
 
-		let response_time = unix_time()?;
+		let _response_time = unix_time()?;
 
 		// Checks to see if the story is deleted or unpublished.
 		let status = match (
@@ -111,7 +115,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		};
 
 		println!("{id}: {status:?}");
-
+		let story_url = format!("{story_domain}/{id}");
 		match status {
 			Status::Deleted => {
 				sleep(start_time, request_interval_short).await?;
@@ -120,6 +124,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 				continue;
 			}
 			Status::Unpublished => {
+				let story_response = handle_request(
+					request_interval_meduim,
+					site_client.clone(),
+					site_headers.clone(),
+					&story_url,
+				)
+				.await?;
+				let html = Html::parse_document(&story_response.text().await?);
+				let selector = format!("form[action='/story/{id}/login']");
+				let selector = Selector::parse(&selector).unwrap();
+				if html.select(&selector).next().is_some() {
+					shared += 1;
+					println!("shared")
+				}
 				sleep(start_time, request_interval_meduim).await?;
 				times.push(unix_time()? - start_time);
 				current_endpoint = 0;
@@ -127,8 +145,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			}
 			Status::Published => current_endpoint = 0,
 		}
-
-		let story_url = format!("{story_domain}/{id}");
 		let story_response = handle_request(
 			request_interval_meduim,
 			site_client.clone(),
@@ -137,13 +153,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)
 		.await?;
 
-		let response_time = unix_time()?;
+		let _response_time = unix_time()?;
 
 		let html = Html::parse_document(&story_response.text().await?);
 		let selector = Selector::parse("a.source").unwrap();
 
 		if let Some(element) = html.select(&selector).next() {
-			if let Some(link) = element.value().attr("href") {
+			if let Some(_link) = element.value().attr("href") {
 				//println!("{link}");
 			}
 		}
@@ -153,7 +169,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let also_liked_selector = Selector::parse("[data-tab='also-liked']").unwrap();
 		for parent in html.select(&also_liked_selector) {
 			for child in parent.select(&child_selector) {
-				if let Some(story_id) = child.value().attr("data-story-id") {
+				if let Some(_story_id) = child.value().attr("data-story-id") {
 					//println!("Also liked: {story_id}");
 				}
 			}
@@ -162,7 +178,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let similar_selector = Selector::parse("[data-tab='similar']").unwrap();
 		for parent in html.select(&similar_selector) {
 			for child in parent.select(&child_selector) {
-				if let Some(story_id) = child.value().attr("data-story-id") {
+				if let Some(_story_id) = child.value().attr("data-story-id") {
 					//println!("Similar: {story_id}");
 				}
 			}
@@ -171,16 +187,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let _api = api_response.json::<Api>().await;
 		// println!("{:#?}", api);
 
-		let sleep_time = unix_time()?;
+		let _sleep_time = unix_time()?;
 		sleep(start_time, request_interval_long).await?;
 		let end_time = unix_time()?;
 		times.push(end_time - start_time);
 	}
-
+	println!("Unpublished shared stories: {shared}");
 	Ok(())
 }
 
-fn setup_api_client(token: &String) -> Result<(Client, HeaderMap), Box<dyn Error>> {
+fn setup_api_client(token: &str) -> Result<(Client, HeaderMap), Box<dyn Error>> {
 	let client = Client::new();
 	let mut headers = HeaderMap::new();
 	headers.insert(
@@ -191,10 +207,10 @@ fn setup_api_client(token: &String) -> Result<(Client, HeaderMap), Box<dyn Error
 	Ok((client, headers))
 }
 
-fn setup_site_client() -> Result<(Client, HeaderMap), Box<dyn Error>> {
+fn setup_site_client(cookie: &str) -> Result<(Client, HeaderMap), Box<dyn Error>> {
 	let client = Client::new();
 	let mut headers = HeaderMap::new();
-	headers.insert(COOKIE, HeaderValue::from_static("view_mature=true"));
+	headers.insert(COOKIE, HeaderValue::from_str(cookie)?);
 	Ok((client, headers))
 }
 

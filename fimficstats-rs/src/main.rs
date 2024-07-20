@@ -1,4 +1,5 @@
 use self::structs::Api;
+use pony::time::format_milliseconds;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
 use scraper::{Html, Selector};
@@ -41,8 +42,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	let mut times: Vec<u128> = Vec::with_capacity(1000);
 
+	let start = 1;
+	let end = 1 + 1000;
+	let end_id = 550_000;
+
 	// Loop over IDs to scrape data.
-	for id in 1..=1000 {
+	for id in start..=end {
 		// End the script of we reach the max consecutive deleted stories.
 		if current_endpoint > max_endpoint {
 			break;
@@ -50,10 +55,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		if !times.is_empty() {
 			let average = times.iter().sum::<u128>() / times.len() as u128;
-
 			println!(
-				"{:?}",
-				Duration::from_millis((average * (1000 - id)) as u64).as_secs()
+				"real time: {}",
+				format_milliseconds(average * (end - id), None)?
+			);
+			println!(
+				"test time: {}",
+				format_milliseconds(average * (end_id - id), None)?
 			);
 		}
 

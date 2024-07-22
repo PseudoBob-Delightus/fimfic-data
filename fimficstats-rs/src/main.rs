@@ -11,13 +11,6 @@ use std::{env, fs};
 
 pub mod structs;
 
-#[derive(Debug)]
-enum Status {
-	Published,
-	Unpublished,
-	Deleted,
-}
-
 const INTERVAL_STEP: u128 = 4000;
 const INTERVAL_MAX: u128 = 120000;
 
@@ -84,8 +77,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			);
 		}
 
-		let mut shared = None;
-
 		let api_url = format!("{api_domain}/{id}");
 		let api_response = handle_request(
 			request_interval_meduim,
@@ -96,7 +87,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		.await?;
 
 		let stats_url = format!("{stats_domain}/{id}");
-		let stats_response = handle_request(
+		let _stats_response = handle_request(
 			request_interval_meduim,
 			site_client.clone(),
 			site_headers.clone(),
@@ -107,41 +98,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let _response_time = unix_time()?;
 
 		// Checks to see if the story is deleted or unpublished.
-		let status = match (
-			api_response.status().is_success(),
-			stats_response.status().is_success(),
-		) {
-			(true, true) => Status::Published,
-			(false, true) => Status::Unpublished,
-			(false, false) => Status::Deleted,
-			(true, false) => unreachable!(),
-		};
-
-		println!("{id}: {status:?}");
-		let story_url = format!("{story_domain}/{id}");
-		match status {
-			Status::Deleted => {
-				sleep(start_time, request_interval_short).await?;
-				times.insert((unix_time()? - start_time) as u32);
-				current_endpoint += 1;
-				continue;
-			}
-			Status::Unpublished => {
-				shared = check_share(
-					id,
-					&story_url,
-					request_interval_meduim,
-					site_client.clone(),
-					site_headers.clone(),
-				)
-				.await?;
-				sleep(start_time, request_interval_meduim).await?;
-				times.insert((unix_time()? - start_time) as u32);
-				current_endpoint = 0;
-				continue;
-			}
-			Status::Published => current_endpoint = 0,
+		if api_response.status().is_client_error() {
+			sleep(start_time, request_interval_short).await?;
+			times.insert((unix_time()? - start_time) as u32);
+			current_endpoint += 1;
+			continue;
 		}
+
+		current_endpoint = 0;
+
+		let story_url = format!("{story_domain}/{id}");
+
 		let story_response = handle_request(
 			request_interval_meduim,
 			site_client.clone(),
@@ -150,22 +117,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)
 		.await?;
 
-		let api = api_response.json::<Api>().await?;
-		let chapter_url = format!("{story_url}/{}/", api.data.attributes.num_chapters + 1);
-		shared = check_share(
-			id,
-			&chapter_url,
-			request_interval_meduim,
-			site_client.clone(),
-			site_headers.clone(),
-		)
-		.await?;
-
-		if let Some(share) = shared {
-			if share {
-				println!("{id}");
-			}
-		}
+		let _api = api_response.json::<Api>().await?;
 
 		let _response_time = unix_time()?;
 
@@ -281,18 +233,4 @@ async fn get_end_id(
 		}
 	}
 	Ok(ids.sort_vec().last().cloned())
-}
-
-async fn check_share(
-	id: u32, url: &str, interval: u128, client: Client, headers: HeaderMap,
-) -> Result<Option<bool>, Box<dyn Error>> {
-	let story_response = handle_request(interval, client, headers, url).await?;
-	let html = Html::parse_document(&story_response.text().await?);
-	let selector = format!("form[action='/story/{id}/login']");
-	let selector = Selector::parse(&selector).unwrap();
-	if html.select(&selector).next().is_some() {
-		Ok(Some(true))
-	} else {
-		Ok(Some(false))
-	}
 }

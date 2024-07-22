@@ -1,4 +1,5 @@
 use self::structs::Api;
+use pony::averages::SimpleMovingAverage;
 use pony::time::format_milliseconds;
 use pony::traits::OrderedVector;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
@@ -48,10 +49,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let (api_client, api_headers) = setup_api_client(token)?;
 	let (site_client, site_headers) = setup_site_client(&cookie)?;
 
-	let mut times: Vec<u128> = Vec::with_capacity(1000);
+	let mut times = SimpleMovingAverage::<u32>::new(10_000);
 
-	let start = 1;
-	let end = 1 + 1000;
+	let start = 551751;
+	let end = start + 1_000;
 
 	let ending_id = get_end_id(
 		&latest_domain,
@@ -62,28 +63,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	.await?;
 	println!("{ending_id:?}");
 
-	let mut shared = 0;
-
 	// Loop over IDs to scrape data.
 	for id in start..=end {
+		let start_time = unix_time()?;
+
 		// End the script of we reach the max consecutive deleted stories.
 		if current_endpoint > max_endpoint {
 			break;
 		}
 
-		if !times.is_empty() {
-			let average = times.iter().sum::<u128>() / times.len() as u128;
+		if !times.data.is_empty() {
+			let average = times.average().unwrap();
 			println!(
 				"real time: {}",
-				format_milliseconds(average * (end - id), None)?
+				format_milliseconds((average * (end - id)) as u128, None)?
 			);
 			println!(
 				"test time: {}",
-				format_milliseconds(average * (ending_id.unwrap() as u128 - id), None)?
+				format_milliseconds((average * (ending_id.unwrap() - id)) as u128, None)?
 			);
 		}
 
-		let start_time = unix_time()?;
+		let mut shared = None;
 
 		let api_url = format!("{api_domain}/{id}");
 		let api_response = handle_request(
@@ -121,27 +122,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		match status {
 			Status::Deleted => {
 				sleep(start_time, request_interval_short).await?;
-				times.push(unix_time()? - start_time);
+				times.insert((unix_time()? - start_time) as u32);
 				current_endpoint += 1;
 				continue;
 			}
 			Status::Unpublished => {
-				let story_response = handle_request(
+				shared = check_share(
+					id,
+					&story_url,
 					request_interval_meduim,
 					site_client.clone(),
 					site_headers.clone(),
-					&story_url,
 				)
 				.await?;
-				let html = Html::parse_document(&story_response.text().await?);
-				let selector = format!("form[action='/story/{id}/login']");
-				let selector = Selector::parse(&selector).unwrap();
-				if html.select(&selector).next().is_some() {
-					shared += 1;
-					println!("shared")
-				}
 				sleep(start_time, request_interval_meduim).await?;
-				times.push(unix_time()? - start_time);
+				times.insert((unix_time()? - start_time) as u32);
 				current_endpoint = 0;
 				continue;
 			}
@@ -154,6 +149,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			&story_url,
 		)
 		.await?;
+
+		let api = api_response.json::<Api>().await?;
+		let chapter_url = format!("{story_url}/{}/", api.data.attributes.num_chapters + 1);
+		shared = check_share(
+			id,
+			&chapter_url,
+			request_interval_meduim,
+			site_client.clone(),
+			site_headers.clone(),
+		)
+		.await?;
+
+		if let Some(share) = shared {
+			if share {
+				println!("{id}");
+			}
+		}
 
 		let _response_time = unix_time()?;
 
@@ -186,15 +198,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			}
 		}
 
-		let _api = api_response.json::<Api>().await;
-		// println!("{:#?}", api);
-
 		let _sleep_time = unix_time()?;
 		sleep(start_time, request_interval_long).await?;
 		let end_time = unix_time()?;
-		times.push(end_time - start_time);
+		times.insert((end_time - start_time) as u32);
 	}
-	println!("Unpublished shared stories: {shared}");
 
 	let program_end = unix_time()?;
 	let time = format_milliseconds(program_end - program_start, None)?;
@@ -273,4 +281,18 @@ async fn get_end_id(
 		}
 	}
 	Ok(ids.sort_vec().last().cloned())
+}
+
+async fn check_share(
+	id: u32, url: &str, interval: u128, client: Client, headers: HeaderMap,
+) -> Result<Option<bool>, Box<dyn Error>> {
+	let story_response = handle_request(interval, client, headers, url).await?;
+	let html = Html::parse_document(&story_response.text().await?);
+	let selector = format!("form[action='/story/{id}/login']");
+	let selector = Selector::parse(&selector).unwrap();
+	if html.select(&selector).next().is_some() {
+		Ok(Some(true))
+	} else {
+		Ok(Some(false))
+	}
 }

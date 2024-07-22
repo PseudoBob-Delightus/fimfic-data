@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	let mut times = SimpleMovingAverage::<u32>::new(10_000);
 
-	let start = 551751;
+	let start = 1;
 	let end = start + 1_000;
 
 	let ending_id = get_end_id(
@@ -68,11 +68,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();
 			println!(
-				"real time: {}",
+				"{id} -- real time: {}",
 				format_milliseconds((average * (end - id)) as u128, None)?
 			);
 			println!(
-				"test time: {}",
+				"{id} -- test time: {}",
 				format_milliseconds((average * (ending_id.unwrap() - id)) as u128, None)?
 			);
 		}
@@ -86,6 +86,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)
 		.await?;
 
+		// Checks to see if the story is deleted or unpublished.
+		if api_response.status().is_client_error() {
+			sleep(start_time, request_interval_short).await?;
+			times.insert((unix_time()? - start_time) as u32);
+			current_endpoint += 1;
+			continue;
+		}
+
 		let stats_url = format!("{stats_domain}/{id}");
 		let _stats_response = handle_request(
 			request_interval_meduim,
@@ -94,16 +102,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			&stats_url,
 		)
 		.await?;
-
-		let _response_time = unix_time()?;
-
-		// Checks to see if the story is deleted or unpublished.
-		if api_response.status().is_client_error() {
-			sleep(start_time, request_interval_short).await?;
-			times.insert((unix_time()? - start_time) as u32);
-			current_endpoint += 1;
-			continue;
-		}
 
 		current_endpoint = 0;
 
@@ -116,6 +114,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			&story_url,
 		)
 		.await?;
+
+		let _response_time = unix_time()?;
 
 		let _api = api_response.json::<Api>().await?;
 

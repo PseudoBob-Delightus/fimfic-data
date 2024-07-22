@@ -5,28 +5,30 @@ use pony::traits::OrderedVector;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
 use scraper::{Html, Selector};
+use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::{env, fs};
 
 pub mod structs;
 
-const INTERVAL_STEP: u128 = 4000;
-const INTERVAL_MAX: u128 = 120000;
+#[derive(Debug, Clone)]
+struct FimficRequest {
+	client: Client,
+	headers: HeaderMap,
+	interval: u128,
+	interval_step: u128,
+	interval_max: u128,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	let program_start = unix_time()?;
 
-	// Set request intervals to ensure API and HTTPS calls are rate limited.
-	let request_interval_short = 500;
-	let request_interval_meduim = 1000;
-	let request_interval_long = 1500;
-
 	// Set the max number of consecutive deleted stories before stopping the script.
 	let max_endpoint = 512;
 	let mut current_endpoint = 0;
 
+	// URL setup.
 	let fimfic = "https://www.fimfiction.net";
 	let latest_domain = format!("{fimfic}/stories?view_mode=2&sort=latest");
 	let api_domain = format!("{fimfic}/api/v2/stories");
@@ -36,25 +38,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	// API Bearer token is required to scrape the data.
 	let token = &env::args().collect::<Vec<_>>()[1];
 
-	// Cookie to view mature
-	let cookie = fs::read_to_string("cookie.txt")?;
+	// API and site request structs, client, headers, and time intervals.
+	let api = FimficRequest {
+		client: Client::new(),
+		headers: setup_api_headers(token)?,
+		interval: 500,
+		interval_step: 500,
+		interval_max: 120_000,
+	};
+	let site = FimficRequest {
+		client: Client::new(),
+		headers: setup_site_headers()?,
+		interval: 500,
+		interval_step: 500,
+		interval_max: 120_000,
+	};
 
-	let (api_client, api_headers) = setup_api_client(token)?;
-	let (site_client, site_headers) = setup_site_client(&cookie)?;
-
+	// Simple weighted average times, used for estimating runtime.
 	let mut times = SimpleMovingAverage::<u32>::new(10_000);
+
+	// Get the latest ID for the time estimate.
+	let ending_id = get_end_id(site.clone(), &latest_domain).await?;
 
 	let start = 1;
 	let end = start + 1_000;
-
-	let ending_id = get_end_id(
-		&latest_domain,
-		request_interval_meduim,
-		site_client.clone(),
-		site_headers.clone(),
-	)
-	.await?;
-	println!("{ending_id:?}");
 
 	// Loop over IDs to scrape data.
 	for id in start..=end {
@@ -73,47 +80,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			);
 			println!(
 				"{id} -- test time: {}",
-				format_milliseconds((average * (ending_id.unwrap() - id)) as u128, None)?
+				format_milliseconds((average * (ending_id.unwrap() + 512 - id)) as u128, None)?
 			);
 		}
 
 		let api_url = format!("{api_domain}/{id}");
-		let api_response = handle_request(
-			request_interval_meduim,
-			api_client.clone(),
-			api_headers.clone(),
-			&api_url,
-		)
-		.await?;
+		let api_response = handle_request(api.clone(), &api_url).await?;
 
 		// Checks to see if the story is deleted or unpublished.
 		if api_response.status().is_client_error() {
-			sleep(start_time, request_interval_short).await?;
+			sleep(start_time, api.interval).await?;
 			times.insert((unix_time()? - start_time) as u32);
 			current_endpoint += 1;
 			continue;
 		}
 
+		sleep(start_time, api.interval).await?;
 		let stats_url = format!("{stats_domain}/{id}");
-		let _stats_response = handle_request(
-			request_interval_meduim,
-			site_client.clone(),
-			site_headers.clone(),
-			&stats_url,
-		)
-		.await?;
+		let _stats_response = handle_request(site.clone(), &stats_url).await?;
 
 		current_endpoint = 0;
 
+		sleep(start_time, api.interval).await?;
 		let story_url = format!("{story_domain}/{id}");
-
-		let story_response = handle_request(
-			request_interval_meduim,
-			site_client.clone(),
-			site_headers.clone(),
-			&story_url,
-		)
-		.await?;
+		let story_response = handle_request(site.clone(), &story_url).await?;
 
 		let _response_time = unix_time()?;
 
@@ -151,7 +141,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		}
 
 		let _sleep_time = unix_time()?;
-		sleep(start_time, request_interval_long).await?;
+		sleep(start_time, api.interval).await?;
 		let end_time = unix_time()?;
 		times.insert((end_time - start_time) as u32);
 	}
@@ -162,48 +152,43 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
-fn setup_api_client(token: &str) -> Result<(Client, HeaderMap), Box<dyn Error>> {
-	let client = Client::new();
+fn setup_api_headers(token: &str) -> Result<HeaderMap, Box<dyn Error>> {
 	let mut headers = HeaderMap::new();
 	headers.insert(
 		AUTHORIZATION,
 		HeaderValue::from_str(&format!("Bearer {}", token))?,
 	);
 	headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-	Ok((client, headers))
+	Ok(headers)
 }
 
-fn setup_site_client(cookie: &str) -> Result<(Client, HeaderMap), Box<dyn Error>> {
-	let client = Client::new();
+fn setup_site_headers() -> Result<HeaderMap, Box<dyn Error>> {
 	let mut headers = HeaderMap::new();
-	headers.insert(COOKIE, HeaderValue::from_str(cookie)?);
-	Ok((client, headers))
+	headers.insert(COOKIE, HeaderValue::from_static("view_mature=true"));
+	Ok(headers)
 }
 
-async fn handle_request(
-	interval: u128, client: Client, headers: HeaderMap, url: &str,
-) -> Result<Response, Box<dyn Error>> {
-	let mut interval = interval;
+async fn handle_request(request: FimficRequest, url: &str) -> Result<Response, Box<dyn Error>> {
+	let mut interval = request.interval;
 	loop {
 		let start_time = unix_time()?;
-		let res = send_http_request(client.clone(), headers.clone(), url).await;
+		let res = request
+			.client
+			.get(url)
+			.headers(request.headers.clone())
+			.send()
+			.await;
 		if res.is_ok() {
-			return res;
+			return Ok(res?);
 		}
 		sleep(start_time, interval).await?;
-		interval = if interval < INTERVAL_MAX {
-			interval + INTERVAL_STEP
+		interval = if interval < request.interval_max {
+			interval + request.interval_step
 		} else {
-			INTERVAL_MAX
+			request.interval_max
 		};
 		println!("Failed to send request to: {url}, next interval is: {interval} milliseconds.");
 	}
-}
-
-async fn send_http_request(
-	client: Client, headers: HeaderMap, url: &str,
-) -> Result<Response, Box<dyn Error>> {
-	Ok(client.get(url).headers(headers).send().await?)
 }
 
 async fn sleep(start_time: u128, interval: u128) -> Result<(), Box<dyn Error>> {
@@ -220,12 +205,10 @@ fn unix_time() -> Result<u128, Box<dyn Error>> {
 	Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis())
 }
 
-async fn get_end_id(
-	url: &str, interval: u128, client: Client, headers: HeaderMap,
-) -> Result<Option<u32>, Box<dyn Error>> {
-	let response = handle_request(interval, client.clone(), headers.clone(), url).await?;
+async fn get_end_id(request: FimficRequest, url: &str) -> Result<Option<u32>, Box<dyn Error>> {
+	let response = handle_request(request, url).await?;
 	let html = Html::parse_document(&response.text().await?);
-	let selector = Selector::parse("[data-story-id]").unwrap();
+	let selector = Selector::parse("[data-story-id]")?;
 	let mut ids = Vec::with_capacity(60);
 	for element in html.select(&selector) {
 		if let Some(story_id) = element.value().attr("data-story-id") {

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Api {
 	pub data: ApiData,
 	pub included: Vec<ApiIncluded>,
@@ -9,7 +9,7 @@ pub struct Api {
 	pub debug: ApiDebug,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ApiData {
 	pub id: String,
 	pub r#type: String,
@@ -19,7 +19,7 @@ pub struct ApiData {
 	pub meta: DataMeta,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DataAttributes {
 	pub title: String,
 	pub short_description: String,
@@ -45,7 +45,7 @@ pub struct DataAttributes {
 	pub num_dislikes: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AttributesCoverImage {
 	pub thumbnail: String,
 	pub medium: String,
@@ -53,58 +53,58 @@ pub struct AttributesCoverImage {
 	pub full: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DataRelationships {
 	pub author: RelationshipAuthor,
 	pub tags: RelationshipTags,
 	pub prequel: Option<RelationshipPrequel>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RelationshipAuthor {
 	pub data: AuthorData,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AuthorData {
 	pub r#type: String,
 	pub id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RelationshipTags {
 	pub data: Vec<TagData>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TagData {
 	pub r#type: String,
 	pub id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RelationshipPrequel {
 	pub data: PrequelData,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PrequelData {
 	pub r#type: String,
 	pub id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DataLinks {
 	#[serde(rename = "self")]
 	pub link: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DataMeta {
 	pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ApiIncluded {
 	pub id: String,
 	pub r#type: String,
@@ -113,7 +113,7 @@ pub struct ApiIncluded {
 	pub meta: IncludedMeta,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct IncludedAttributes {
 	pub name: String,
 	pub bio: String,
@@ -126,7 +126,7 @@ pub struct IncludedAttributes {
 	pub date_joined: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AttributesAvatar {
 	#[serde(rename = "32")]
 	pub r32: String,
@@ -152,24 +152,24 @@ pub struct AttributesAvatar {
 	pub r512: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AttributesColor {
 	pub hex: String,
 	pub rgb: (u32, u32, u32),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct IncludedLinks {
 	#[serde(rename = "self")]
 	pub link: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct IncludedMeta {
 	pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ApiDebug {
 	pub duration: String,
 }

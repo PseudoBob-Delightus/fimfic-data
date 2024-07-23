@@ -220,9 +220,7 @@ async fn parse_response(response: StoryResponse) {
 fn parse_story_page(html: String) {
 	let html = Html::parse_document(&html);
 	let cover_source = get_attribute_if(&html, "a.source", "href");
-	println!("{cover_source:?}");
-
-	// "[data-story-id]" "[data-tab='also-liked']" "data-story-id" "[data-tab='similar']"
+	println!("Cover source: {cover_source:?}");
 
 	let also_liked = get_attributes_from(
 		&html,
@@ -230,7 +228,7 @@ fn parse_story_page(html: String) {
 		"data-story-id",
 		8,
 	);
-	println!("{also_liked:?}");
+	println!("Also liked: {also_liked:?}");
 
 	let similar = get_attributes_from(
 		&html,
@@ -238,7 +236,15 @@ fn parse_story_page(html: String) {
 		"data-story-id",
 		8,
 	);
-	println!("{similar:?}");
+	println!("Similar: {similar:?}");
+
+	let banned = get_attribute_if(&html, ".user-page-header .info-container a", "style")
+		.map_or(false, |style| style == "text-decoration:line-through");
+	println!("Banned: {banned}");
+
+	let offline_since = get_attribute_if(&html, ".mini-info-box [data-time]", "data-time")
+		.and_then(|time| time.parse::<u32>().ok());
+	println!("Last online: {offline_since:?}");
 }
 
 fn get_attribute_if(html: &Html, condition: &str, attrute: &str) -> Option<String> {

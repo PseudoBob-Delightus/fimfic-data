@@ -8,6 +8,7 @@ use scraper::{Html, Selector};
 use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::time::timeout;
 
 pub mod structs;
 
@@ -15,9 +16,10 @@ pub mod structs;
 struct FimficRequest {
 	client: Client,
 	headers: HeaderMap,
-	interval: u128,
-	interval_step: u128,
-	interval_max: u128,
+	interval: Duration,
+	interval_step: Duration,
+	interval_max: Duration,
+	timeout: Duration,
 }
 
 #[tokio::main]
@@ -42,16 +44,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let api = FimficRequest {
 		client: Client::new(),
 		headers: setup_api_headers(token)?,
-		interval: 500,
-		interval_step: 500,
-		interval_max: 120_000,
+		interval: Duration::from_millis(500),
+		interval_step: Duration::from_secs(2),
+		interval_max: Duration::from_secs(120),
+		timeout: Duration::from_secs(10),
 	};
 	let site = FimficRequest {
 		client: Client::new(),
 		headers: setup_site_headers()?,
-		interval: 500,
-		interval_step: 500,
-		interval_max: 120_000,
+		interval: Duration::from_millis(500),
+		interval_step: Duration::from_secs(2),
+		interval_max: Duration::from_secs(120),
+		timeout: Duration::from_secs(10),
 	};
 
 	// Simple weighted average times, used for estimating runtime.
@@ -172,14 +176,25 @@ async fn handle_request(request: FimficRequest, url: &str) -> Result<Response, B
 	let mut interval = request.interval;
 	loop {
 		let start_time = unix_time()?;
-		let res = request
-			.client
-			.get(url)
-			.headers(request.headers.clone())
-			.send()
-			.await;
-		if res.is_ok() {
-			return Ok(res?);
+		let res = timeout(
+			request.timeout,
+			request
+				.client
+				.get(url)
+				.headers(request.headers.clone())
+				.send(),
+		)
+		.await;
+		match res {
+			Ok(Ok(response)) => {
+				return Ok(response);
+			}
+			Ok(Err(e)) => {
+				println!("Request failed: {e}");
+			}
+			Err(e) => {
+				println!("Request timed out: {e}");
+			}
 		}
 		sleep(start_time, interval).await?;
 		interval = if interval < request.interval_max {
@@ -187,17 +202,16 @@ async fn handle_request(request: FimficRequest, url: &str) -> Result<Response, B
 		} else {
 			request.interval_max
 		};
-		println!("Failed to send request to: {url}, next interval is: {interval} milliseconds.");
 	}
 }
 
-async fn sleep(start_time: u128, interval: u128) -> Result<(), Box<dyn Error>> {
+async fn sleep(start_time: u128, interval: Duration) -> Result<(), Box<dyn Error>> {
 	let current_time = unix_time()?;
-	let elapsed_time = current_time - start_time;
+	let elapsed_time = Duration::from_millis((current_time - start_time).try_into()?);
 	if elapsed_time > interval {
 		return Ok(());
 	};
-	tokio::time::sleep(Duration::from_millis((interval - elapsed_time) as u64)).await;
+	tokio::time::sleep(interval - elapsed_time).await;
 	Ok(())
 }
 

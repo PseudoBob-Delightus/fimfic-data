@@ -97,26 +97,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		let api_url = format!("{api_domain}/{id}");
 		let api_response = handle_request(api.clone(), &api_url).await?;
+		sleep(start_time, api.interval).await?;
 
 		// Checks to see if the story is deleted or unpublished.
 		if api_response.status().is_client_error() {
-			sleep(start_time, api.interval).await?;
 			times.insert((unix_time()? - start_time) as u32);
 			current_endpoint += 1;
 			continue;
 		}
 
-		sleep(start_time, api.interval).await?;
-		let stats_url = format!("{stats_domain}/{id}");
-		let stats_response = handle_request(site.clone(), &stats_url).await?;
-
 		current_endpoint = 0;
 
-		sleep(start_time, api.interval).await?;
+		let repsonse_time = unix_time()?;
+		let stats_url = format!("{stats_domain}/{id}");
+		let stats_response = handle_request(site.clone(), &stats_url).await?;
+		sleep(repsonse_time, api.interval).await?;
+
+		let repsonse_time = unix_time()?;
 		let story_url = format!("{story_domain}/{id}");
 		let story_response = handle_request(site.clone(), &story_url).await?;
-
-		let _response_time = unix_time()?;
+		sleep(repsonse_time, api.interval).await?;
 
 		let response = StoryResponse {
 			api: api_response.json::<Api>().await?,
@@ -126,8 +126,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		parse_response(response).await;
 
-		let _sleep_time = unix_time()?;
-		sleep(start_time, api.interval).await?;
 		let end_time = unix_time()?;
 		times.insert((end_time - start_time) as u32);
 	}

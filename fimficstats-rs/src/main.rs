@@ -22,6 +22,13 @@ struct FimficRequest {
 	timeout: Duration,
 }
 
+#[derive(Debug, Clone)]
+struct StoryResponse {
+	api: Api,
+	stats: String,
+	story: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	let program_start = unix_time()?;
@@ -101,7 +108,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		sleep(start_time, api.interval).await?;
 		let stats_url = format!("{stats_domain}/{id}");
-		let _stats_response = handle_request(site.clone(), &stats_url).await?;
+		let stats_response = handle_request(site.clone(), &stats_url).await?;
 
 		current_endpoint = 0;
 
@@ -111,38 +118,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		let _response_time = unix_time()?;
 
-		let _api = api_response.json::<Api>().await?;
+		let response = StoryResponse {
+			api: api_response.json::<Api>().await?,
+			stats: stats_response.text().await?,
+			story: story_response.text().await?,
+		};
 
-		let _response_time = unix_time()?;
-
-		let html = Html::parse_document(&story_response.text().await?);
-		let selector = Selector::parse("a.source").unwrap();
-
-		if let Some(element) = html.select(&selector).next() {
-			if let Some(_link) = element.value().attr("href") {
-				//println!("{link}");
-			}
-		}
-
-		let child_selector = Selector::parse("[data-story-id]").unwrap();
-
-		let also_liked_selector = Selector::parse("[data-tab='also-liked']").unwrap();
-		for parent in html.select(&also_liked_selector) {
-			for child in parent.select(&child_selector) {
-				if let Some(_story_id) = child.value().attr("data-story-id") {
-					//println!("Also liked: {story_id}");
-				}
-			}
-		}
-
-		let similar_selector = Selector::parse("[data-tab='similar']").unwrap();
-		for parent in html.select(&similar_selector) {
-			for child in parent.select(&child_selector) {
-				if let Some(_story_id) = child.value().attr("data-story-id") {
-					//println!("Similar: {story_id}");
-				}
-			}
-		}
+		parse_response(response).await;
 
 		let _sleep_time = unix_time()?;
 		sleep(start_time, api.interval).await?;
@@ -230,4 +212,35 @@ async fn get_end_id(request: FimficRequest, url: &str) -> Result<Option<u32>, Bo
 		}
 	}
 	Ok(ids.sort_vec().last().cloned())
+}
+
+async fn parse_response(response: StoryResponse) {
+	let html = Html::parse_document(&response.story);
+	let selector = Selector::parse("a.source").unwrap();
+
+	if let Some(element) = html.select(&selector).next() {
+		if let Some(_link) = element.value().attr("href") {
+			//println!("{link}");
+		}
+	}
+
+	let child_selector = Selector::parse("[data-story-id]").unwrap();
+
+	let also_liked_selector = Selector::parse("[data-tab='also-liked']").unwrap();
+	for parent in html.select(&also_liked_selector) {
+		for child in parent.select(&child_selector) {
+			if let Some(_story_id) = child.value().attr("data-story-id") {
+				//println!("Also liked: {story_id}");
+			}
+		}
+	}
+
+	let similar_selector = Selector::parse("[data-tab='similar']").unwrap();
+	for parent in html.select(&similar_selector) {
+		for child in parent.select(&child_selector) {
+			if let Some(_story_id) = child.value().attr("data-story-id") {
+				//println!("Similar: {story_id}");
+			}
+		}
+	}
 }

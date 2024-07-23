@@ -124,6 +124,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			story: story_response.text().await?,
 		};
 
+		println!("Published story: {id}");
 		parse_response(response).await;
 
 		let end_time = unix_time()?;
@@ -213,32 +214,49 @@ async fn get_end_id(request: FimficRequest, url: &str) -> Result<Option<u32>, Bo
 }
 
 async fn parse_response(response: StoryResponse) {
-	let html = Html::parse_document(&response.story);
-	let selector = Selector::parse("a.source").unwrap();
+	parse_story_page(response.story);
+}
 
+fn parse_story_page(html: String) {
+	let html = Html::parse_document(&html);
+	let cover_source = get_attribute_if(&html, "a.source", "href");
+	println!("{cover_source:?}");
+
+	// "[data-story-id]" "[data-tab='also-liked']" "data-story-id" "[data-tab='similar']"
+
+	let also_liked = get_attributes_from(
+		&html,
+		"[data-tab='also-liked'] [data-story-id]",
+		"data-story-id",
+		8,
+	);
+	println!("{also_liked:?}");
+
+	let similar = get_attributes_from(
+		&html,
+		"[data-tab='similar'] [data-story-id]",
+		"data-story-id",
+		8,
+	);
+	println!("{similar:?}");
+}
+
+fn get_attribute_if(html: &Html, condition: &str, attrute: &str) -> Option<String> {
+	let selector = Selector::parse(condition).unwrap();
 	if let Some(element) = html.select(&selector).next() {
-		if let Some(_link) = element.value().attr("href") {
-			//println!("{link}");
+		element.value().attr(attrute).map(|link| link.into())
+	} else {
+		None
+	}
+}
+
+fn get_attributes_from(html: &Html, from: &str, attrute: &str, capacity: usize) -> Vec<String> {
+	let mut attributes = Vec::with_capacity(capacity);
+	let selector = Selector::parse(from).unwrap();
+	for child in html.select(&selector) {
+		if let Some(text) = child.value().attr(attrute) {
+			attributes.push(text.into())
 		}
 	}
-
-	let child_selector = Selector::parse("[data-story-id]").unwrap();
-
-	let also_liked_selector = Selector::parse("[data-tab='also-liked']").unwrap();
-	for parent in html.select(&also_liked_selector) {
-		for child in parent.select(&child_selector) {
-			if let Some(_story_id) = child.value().attr("data-story-id") {
-				//println!("Also liked: {story_id}");
-			}
-		}
-	}
-
-	let similar_selector = Selector::parse("[data-tab='similar']").unwrap();
-	for parent in html.select(&similar_selector) {
-		for child in parent.select(&child_selector) {
-			if let Some(_story_id) = child.value().attr("data-story-id") {
-				//println!("Similar: {story_id}");
-			}
-		}
-	}
+	attributes
 }

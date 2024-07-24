@@ -32,6 +32,7 @@ struct StoryResponse {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+	println!("Program started at: {}", Utc::now());
 	let program_start = unix_time()?;
 
 	// Set the max number of consecutive deleted stories before stopping the script.
@@ -71,6 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	// Get the latest ID for the time estimate.
 	let ending_id = get_end_id(site.clone(), &latest_domain).await?;
+	println!("{ending_id:?}");
 
 	let start = 1;
 	let end = start + 1_000;
@@ -98,7 +100,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		let api_url = format!("{api_domain}/{id}");
 		let api_response = handle_request(api.clone(), &api_url).await?;
-		sleep(start_time, api.interval).await?;
 
 		// Checks to see if the story is deleted or unpublished.
 		if api_response.status().is_client_error() {
@@ -109,15 +110,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		current_endpoint = 0;
 
-		let repsonse_time = unix_time()?;
 		let stats_url = format!("{stats_domain}/{id}");
 		let stats_response = handle_request(site.clone(), &stats_url).await?;
-		sleep(repsonse_time, api.interval).await?;
 
-		let repsonse_time = unix_time()?;
 		let story_url = format!("{story_domain}/{id}");
 		let story_response = handle_request(site.clone(), &story_url).await?;
-		sleep(repsonse_time, api.interval).await?;
 
 		let response = StoryResponse {
 			api: api_response.json::<Api>().await?,
@@ -125,16 +122,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			story: story_response.text().await?,
 		};
 
+		let parse_start = unix_time()?;
 		println!("Published story: {id}");
 		parse_response(response).await;
 
 		let end_time = unix_time()?;
 		times.insert((end_time - start_time) as u32);
+
+		println!(
+			"Time to parse: {}",
+			format_milliseconds(end_time - parse_start, None)?
+		)
 	}
 
 	let program_end = unix_time()?;
 	let time = format_milliseconds(program_end - program_start, None)?;
 	println!("Total runtime: {time}");
+	println!("Program ended at: {}", Utc::now());
 	Ok(())
 }
 
@@ -169,6 +173,7 @@ async fn handle_request(request: FimficRequest, url: &str) -> Result<Response, B
 		.await;
 		match res {
 			Ok(Ok(response)) => {
+				sleep(start_time, request.interval).await?;
 				return Ok(response);
 			}
 			Ok(Err(e)) => {

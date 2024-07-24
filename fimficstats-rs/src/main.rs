@@ -233,7 +233,10 @@ fn parse_story_page(html: String) {
 		"[data-tab='also-liked'] [data-story-id]",
 		Some("data-story-id"),
 		8,
-	);
+	)
+	.iter()
+	.map(|id| id.parse::<i32>().unwrap())
+	.collect::<Vec<_>>();
 	println!("Also liked: {also_liked:?}");
 
 	let similar = get_attributes_from(
@@ -241,7 +244,10 @@ fn parse_story_page(html: String) {
 		"[data-tab='similar'] [data-story-id]",
 		Some("data-story-id"),
 		8,
-	);
+	)
+	.iter()
+	.map(|id| id.parse::<i32>().unwrap())
+	.collect::<Vec<_>>();
 	println!("Similar: {similar:?}");
 
 	let banned = get_attribute_if(&html, ".user-page-header .info-container a", Some("style"))

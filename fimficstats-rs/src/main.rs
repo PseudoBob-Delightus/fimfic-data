@@ -1,4 +1,5 @@
 use self::structs::Api;
+use chrono::{TimeZone, Utc};
 use pony::averages::SimpleMovingAverage;
 use pony::time::format_milliseconds;
 use pony::traits::OrderedVector;
@@ -242,8 +243,8 @@ fn parse_story_page(html: String) {
 		.map_or(false, |style| style == "text-decoration:line-through");
 	println!("Banned: {banned}");
 
-	let offline_since = get_attribute_if(&html, ".mini-info-box [data-time]", Some("data-time"))
-		.and_then(|time| time.parse::<u32>().ok());
+	let offline_since = get_attribute_if(&html, ".mini-info-box [data-time]", Some("title"))
+		.map_or(unix_time().unwrap() / 1000, |time| parse_time(&time));
 	println!("Last online: {offline_since:?}");
 
 	let groups = get_attribute_if(&html, ".header-groups .count", None)
@@ -301,4 +302,59 @@ fn get_attributes_from(
 		}
 	}
 	attributes
+}
+
+fn parse_time(time: &str) -> u128 {
+	let parts = time.split_whitespace().collect::<Vec<_>>();
+	let year = parts[4].parse::<i32>().unwrap();
+	let month = match parts[3] {
+		"January" => 1,
+		"February" => 2,
+		"March" => 3,
+		"April" => 4,
+		"May" => 5,
+		"June" => 6,
+		"July" => 7,
+		"August" => 8,
+		"September" => 9,
+		"October" => 10,
+		"November" => 11,
+		"December" => 12,
+		_ => unreachable!(),
+	};
+	let day = parts[1]
+		.chars()
+		.filter(|c| c.is_ascii_digit())
+		.collect::<String>()
+		.parse::<u32>()
+		.unwrap();
+	let hour = parts[5]
+		.split(':')
+		.next()
+		.unwrap()
+		.trim_start_matches('@')
+		.parse::<u32>()
+		.unwrap();
+	let hour = match parts[5] {
+		part if part.ends_with("am") && hour == 12 => 0,
+		part if part.ends_with("am") => hour,
+		part if part.ends_with("pm") && hour != 12 => hour + 12,
+		part if part.ends_with("pm") => hour,
+		_ => unreachable!(),
+	};
+	let minute = parts[5]
+		.split(':')
+		.last()
+		.unwrap()
+		.chars()
+		.filter(|c| c.is_ascii_digit())
+		.collect::<String>()
+		.parse::<u32>()
+		.unwrap();
+
+	Utc::with_ymd_and_hms(&Utc, year, month, day, hour, minute, 0)
+		.unwrap()
+		.timestamp()
+		.try_into()
+		.unwrap()
 }

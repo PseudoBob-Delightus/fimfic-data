@@ -5,7 +5,7 @@ use pony::time::format_milliseconds;
 use pony::traits::OrderedVector;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
-use scraper::{Html, Selector};
+use scraper::{ElementRef, Html, Selector};
 use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -377,4 +377,47 @@ fn parse_stats_page(html: String) {
 	let stats = get_attribute_if(&html, ".layout-two-columns.story-stats", Some("data-data"));
 	let stats = serde_json::from_str::<Stats>(&stats.unwrap()).unwrap();
 	println!("Stats (views): {:?}", stats.stats.data[0].views);
+
+	let sidebar_stats =
+		get_attributes_from_parent(&html, ".content_box .article ul li > b", None, 6);
+	let ranking = sidebar_stats.get(2).map(|s| get_right_stat(s)).unwrap();
+	println!("Ranking: {ranking}");
+	let word_ranking = sidebar_stats.get(3).map(|s| get_right_stat(s)).unwrap();
+	println!("Word ranking: {word_ranking}");
+	let bookshelves = sidebar_stats.get(4).map(|s| get_right_stat(s)).unwrap();
+	println!("Bookshelves: {bookshelves}");
+	let tracking = sidebar_stats.get(5).map(|s| get_right_stat(s)).unwrap();
+	println!("Tracking: {tracking}");
+}
+
+fn get_attributes_from_parent(
+	html: &Html, from: &str, attribute: Option<&str>, capacity: usize,
+) -> Vec<String> {
+	let mut attributes = Vec::with_capacity(capacity);
+	let selector = Selector::parse(from).unwrap();
+	for child in html.select(&selector) {
+		if let Some(parent_node) = child.parent() {
+			if let Some(parent_element) = ElementRef::wrap(parent_node) {
+				if let Some(attribute) = attribute {
+					if let Some(text) = parent_element.value().attr(attribute) {
+						attributes.push(text.into())
+					}
+				} else {
+					attributes.push(parent_element.text().collect())
+				}
+			}
+		}
+	}
+	attributes
+}
+
+fn get_right_stat(text: &str) -> u32 {
+	text.split(':')
+		.last()
+		.unwrap()
+		.chars()
+		.filter(|c| c.is_ascii_digit())
+		.collect::<String>()
+		.parse::<u32>()
+		.unwrap()
 }

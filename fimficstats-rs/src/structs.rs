@@ -208,6 +208,6 @@ pub struct StatsData {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum ChapterDate {
-	Number(u32),
 	Text(String),
+	Number(u32),
 }

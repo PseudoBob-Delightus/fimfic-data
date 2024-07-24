@@ -6,6 +6,7 @@ use pony::traits::OrderedVector;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
 use scraper::{ElementRef, Html, Selector};
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -376,7 +377,7 @@ fn parse_stats_page(html: String) {
 
 	let stats = get_attribute_if(&html, ".layout-two-columns.story-stats", Some("data-data"));
 	let stats = serde_json::from_str::<Stats>(&stats.unwrap()).unwrap();
-	println!("Stats (views): {:?}", stats.stats.data[0].views);
+	println!("Stats (views - day one): {:?}", stats.stats.data[0].views);
 
 	let sidebar_stats =
 		get_attributes_from_parent(&html, ".content_box .article ul li > b", None, 6);
@@ -388,6 +389,17 @@ fn parse_stats_page(html: String) {
 	println!("Bookshelves: {bookshelves}");
 	let tracking = sidebar_stats.get(5).map(|s| get_right_stat(s)).unwrap();
 	println!("Tracking: {tracking}");
+	let referrals: HashMap<&str, u32> = sidebar_stats
+		.iter()
+		.skip(6)
+		.map(|referral| {
+			let data = referral.split(": ").collect::<Vec<_>>();
+			let site = data.first().unwrap();
+			let count = get_right_stat(data.last().unwrap());
+			(site.to_owned(), count)
+		})
+		.collect();
+	println!("Referrals: {referrals:?}");
 }
 
 fn get_attributes_from_parent(

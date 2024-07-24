@@ -31,6 +31,15 @@ struct StoryResponse {
 	story: String,
 }
 
+#[derive(Debug, Clone)]
+struct StoryTag {
+	id: u32,
+	title: String,
+	group: String,
+	href: String,
+	text: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	println!("Program started at: {}", Utc::now());
@@ -412,6 +421,9 @@ fn parse_stats_page(html: String) {
 		"Stats page time: {}",
 		format_milliseconds(page_time as u128, None).unwrap()
 	);
+
+	let tags = get_story_tags(&html);
+	println!("Story tags: {tags:?}");
 }
 
 fn get_attributes_from_parent(
@@ -457,4 +469,20 @@ fn get_page_time(html: &Html) -> u32 {
 		}
 	});
 	(page_time.unwrap() * 1000.0) as u32
+}
+
+fn get_story_tags(html: &Html) -> Vec<StoryTag> {
+	let mut tags = Vec::new();
+	let selector = Selector::parse(".story-tags li a").unwrap();
+	for child in html.select(&selector) {
+		let tag = StoryTag {
+			id: child.attr("tag-id").unwrap().parse::<u32>().unwrap(),
+			title: child.attr("title").unwrap().into(),
+			group: child.attr("class").unwrap().into(),
+			href: child.attr("href").unwrap().into(),
+			text: child.text().collect(),
+		};
+		tags.push(tag);
+	}
+	tags
 }

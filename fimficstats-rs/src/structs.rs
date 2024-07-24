@@ -173,3 +173,41 @@ pub struct IncludedMeta {
 pub struct ApiDebug {
 	pub duration: String,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Stats {
+	pub chapters: Vec<ChapterStats>,
+	pub stats: StatsStats,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ChapterStats {
+	pub date: String,
+	pub title: String,
+	pub views: String,
+	pub words: String,
+	pub words_text: String,
+	pub chapter_num: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct StatsStats {
+	pub data: Vec<StatsData>,
+	pub first_chapter_date: ChapterDate,
+	pub last_chapter_date: ChapterDate,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct StatsData {
+	pub views: Option<u32>,
+	pub likes: Option<u32>,
+	pub dislikes: Option<u32>,
+	pub date: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum ChapterDate {
+	Number(u32),
+	Text(String),
+}

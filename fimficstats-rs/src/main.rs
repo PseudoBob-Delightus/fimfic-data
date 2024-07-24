@@ -1,4 +1,4 @@
-use self::structs::Api;
+use self::structs::{Api, Stats};
 use chrono::{TimeZone, Utc};
 use pony::averages::SimpleMovingAverage;
 use pony::time::format_milliseconds;
@@ -221,6 +221,7 @@ async fn get_end_id(request: FimficRequest, url: &str) -> Result<Option<u32>, Bo
 
 async fn parse_response(response: StoryResponse) {
 	parse_story_page(response.story);
+	parse_stats_page(response.stats);
 }
 
 fn parse_story_page(html: String) {
@@ -368,4 +369,12 @@ fn parse_time(time: &str) -> u128 {
 		.timestamp()
 		.try_into()
 		.unwrap()
+}
+
+fn parse_stats_page(html: String) {
+	let html = Html::parse_document(&html);
+
+	let stats = get_attribute_if(&html, ".layout-two-columns.story-stats", Some("data-data"));
+	let stats = serde_json::from_str::<Stats>(&stats.unwrap()).unwrap();
+	println!("Stats (views): {:?}", stats.stats.data[0].views);
 }

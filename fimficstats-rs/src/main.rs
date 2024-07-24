@@ -219,13 +219,13 @@ async fn parse_response(response: StoryResponse) {
 
 fn parse_story_page(html: String) {
 	let html = Html::parse_document(&html);
-	let cover_source = get_attribute_if(&html, "a.source", "href");
+	let cover_source = get_attribute_if(&html, "a.source", Some("href"));
 	println!("Cover source: {cover_source:?}");
 
 	let also_liked = get_attributes_from(
 		&html,
 		"[data-tab='also-liked'] [data-story-id]",
-		"data-story-id",
+		Some("data-story-id"),
 		8,
 	);
 	println!("Also liked: {also_liked:?}");
@@ -233,35 +233,71 @@ fn parse_story_page(html: String) {
 	let similar = get_attributes_from(
 		&html,
 		"[data-tab='similar'] [data-story-id]",
-		"data-story-id",
+		Some("data-story-id"),
 		8,
 	);
 	println!("Similar: {similar:?}");
 
-	let banned = get_attribute_if(&html, ".user-page-header .info-container a", "style")
+	let banned = get_attribute_if(&html, ".user-page-header .info-container a", Some("style"))
 		.map_or(false, |style| style == "text-decoration:line-through");
 	println!("Banned: {banned}");
 
-	let offline_since = get_attribute_if(&html, ".mini-info-box [data-time]", "data-time")
+	let offline_since = get_attribute_if(&html, ".mini-info-box [data-time]", Some("data-time"))
 		.and_then(|time| time.parse::<u32>().ok());
 	println!("Last online: {offline_since:?}");
+
+	let groups = get_attribute_if(&html, ".header-groups .count", None)
+		.map_or(0, |groups| groups.replace(',', "").parse::<u32>().unwrap());
+	println!("Groups: {groups}");
+
+	let stories = get_attribute_if(&html, ".tabs .tab-stories .number", None)
+		.map_or(0, |stories| {
+			stories.replace(',', "").parse::<u32>().unwrap()
+		});
+	println!("Stories: {stories}");
+
+	let blogs = get_attribute_if(&html, ".tabs .tab-blog .number", None)
+		.map_or(0, |blogs| blogs.replace(',', "").parse::<u32>().unwrap());
+	println!("Blogs: {blogs}");
+
+	let followers = get_attribute_if(&html, ".tabs .tab-followers .number", None)
+		.map_or(0, |followers| {
+			followers.replace(',', "").parse::<u32>().unwrap()
+		});
+	println!("Followers: {followers}");
+
+	let following = get_attribute_if(&html, ".tabs .tab-following .number", None)
+		.map_or(0, |following| {
+			following.replace(',', "").parse::<u32>().unwrap()
+		});
+	println!("Following: {following}");
 }
 
-fn get_attribute_if(html: &Html, condition: &str, attrute: &str) -> Option<String> {
+fn get_attribute_if(html: &Html, condition: &str, attribute: Option<&str>) -> Option<String> {
 	let selector = Selector::parse(condition).unwrap();
 	if let Some(element) = html.select(&selector).next() {
-		element.value().attr(attrute).map(|link| link.into())
+		if let Some(attribute) = attribute {
+			element.value().attr(attribute).map(|link| link.into())
+		} else {
+			Some(element.text().collect())
+		}
 	} else {
 		None
 	}
 }
 
-fn get_attributes_from(html: &Html, from: &str, attrute: &str, capacity: usize) -> Vec<String> {
+fn get_attributes_from(
+	html: &Html, from: &str, attribute: Option<&str>, capacity: usize,
+) -> Vec<String> {
 	let mut attributes = Vec::with_capacity(capacity);
 	let selector = Selector::parse(from).unwrap();
 	for child in html.select(&selector) {
-		if let Some(text) = child.value().attr(attrute) {
-			attributes.push(text.into())
+		if let Some(attribute) = attribute {
+			if let Some(text) = child.value().attr(attribute) {
+				attributes.push(text.into())
+			}
+		} else {
+			attributes.push(child.text().collect())
 		}
 	}
 	attributes

@@ -285,6 +285,12 @@ fn parse_story_page(html: String) {
 			following.replace(',', "").parse::<u32>().unwrap()
 		});
 	println!("Following: {following}");
+
+	let page_time = get_page_time(&html);
+	println!(
+		"Story page time: {}",
+		format_milliseconds(page_time as u128, None).unwrap()
+	);
 }
 
 fn get_attribute_if(html: &Html, condition: &str, attribute: Option<&str>) -> Option<String> {
@@ -400,6 +406,12 @@ fn parse_stats_page(html: String) {
 		})
 		.collect();
 	println!("Referrals: {referrals:?}");
+
+	let page_time = get_page_time(&html);
+	println!(
+		"Stats page time: {}",
+		format_milliseconds(page_time as u128, None).unwrap()
+	);
 }
 
 fn get_attributes_from_parent(
@@ -432,4 +444,17 @@ fn get_right_stat(text: &str) -> u32 {
 		.collect::<String>()
 		.parse::<u32>()
 		.unwrap()
+}
+
+fn get_page_time(html: &Html) -> u32 {
+	let page_time = get_attributes_from(html, ".footer .block .highlight", None, 12);
+	let page_time = page_time.first().and_then(|s| {
+		let parts: Vec<_> = s.split(' ').collect();
+		if parts.len() == 2 && parts[1] == "seconds" {
+			parts[0].parse::<f32>().ok()
+		} else {
+			None
+		}
+	});
+	(page_time.unwrap() * 1000.0) as u32
 }

@@ -5,6 +5,7 @@ use pony::time::format_milliseconds;
 use pony::traits::OrderedVector;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
+use rusqlite::{Connection, Params};
 use scraper::{ElementRef, Html, Selector};
 use std::collections::HashMap;
 use std::env;
@@ -44,6 +45,8 @@ struct StoryTag {
 async fn main() -> Result<(), Box<dyn Error>> {
 	println!("Program started at: {}", Utc::now());
 	let program_start = unix_time()?;
+
+	let db = setup_database()?;
 
 	// Set the max number of consecutive deleted stories before stopping the script.
 	let max_endpoint = 512;
@@ -485,4 +488,18 @@ fn get_story_tags(html: &Html) -> Vec<StoryTag> {
 		tags.push(tag);
 	}
 	tags
+}
+
+fn setup_database() -> Result<Connection, Box<dyn Error>> {
+	let mut db = Connection::open("./fimfic-stats.db")?;
+	let tx = db.transaction()?;
+	tx.execute(include_str!("../queries/story-index-table.sql"), [])?;
+	tx.execute(include_str!("../queries/authors-table.sql"), [])?;
+	tx.execute(include_str!("../queries/stories-table.sql"), [])?;
+	tx.execute(include_str!("../queries/tags-table.sql"), [])?;
+	tx.execute(include_str!("../queries/tag-links-table.sql"), [])?;
+	tx.execute(include_str!("../queries/chapters-table.sql"), [])?;
+	tx.execute(include_str!("../queries/stats-table.sql"), [])?;
+	tx.commit()?;
+	Ok(db)
 }

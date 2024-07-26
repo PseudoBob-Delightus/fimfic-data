@@ -33,6 +33,37 @@ struct StoryResponse {
 }
 
 #[derive(Debug, Clone)]
+struct StoryData {
+	api: Api,
+	story: StoryPage,
+	stats: StatsPage,
+}
+
+#[derive(Debug, Clone)]
+struct StoryPage {
+	banned: bool,
+	offline_since: u128,
+	following: u32,
+	cover_source: String,
+	also_liked: Vec<u32>,
+	similar: Vec<u32>,
+	groups: u32,
+	page_time: u32,
+}
+
+#[derive(Debug, Clone)]
+struct StatsPage {
+	tags: Vec<StoryTag>,
+	stats: Stats,
+	ranking: u32,
+	word_ranking: u32,
+	bookshelves: u32,
+	tracking: u32,
+	referrals: HashMap<String, u32>,
+	page_time: u32,
+}
+
+#[derive(Debug, Clone)]
 struct StoryTag {
 	id: u32,
 	title: String,
@@ -232,15 +263,30 @@ async fn get_end_id(request: FimficRequest, url: &str) -> Result<Option<u32>, Bo
 	Ok(ids.sort_vec().last().cloned())
 }
 
-async fn parse_response(response: StoryResponse) {
-	parse_story_page(response.story);
-	parse_stats_page(response.stats);
+async fn parse_response(response: StoryResponse) -> StoryData {
+	StoryData {
+		api: response.api,
+		story: parse_story_page(response.story),
+		stats: parse_stats_page(response.stats),
+	}
 }
 
-fn parse_story_page(html: String) {
+fn parse_story_page(html: String) -> StoryPage {
 	let html = Html::parse_document(&html);
-	let cover_source = get_attribute_if(&html, "a.source", Some("href"));
-	println!("Cover source: {cover_source:?}");
+
+	let banned = get_attribute_if(&html, ".user-page-header .info-container a", Some("style"))
+		.map_or(false, |style| style == "text-decoration:line-through");
+
+	let offline_since = get_attribute_if(&html, ".mini-info-box [data-time]", Some("title"))
+		.map_or(unix_time().unwrap() / 1000, |time| parse_time(&time));
+
+	let following = get_attribute_if(&html, ".tabs .tab-following .number", None)
+		.map_or(0, |following| {
+			following.replace(',', "").parse::<u32>().unwrap()
+		});
+
+	let cover_source =
+		get_attribute_if(&html, "a.source", Some("href")).unwrap_or("NULL".to_string());
 
 	let also_liked = get_attributes_from(
 		&html,
@@ -249,9 +295,8 @@ fn parse_story_page(html: String) {
 		8,
 	)
 	.iter()
-	.map(|id| id.parse::<i32>().unwrap())
+	.map(|id| id.parse::<u32>().unwrap())
 	.collect::<Vec<_>>();
-	println!("Also liked: {also_liked:?}");
 
 	let similar = get_attributes_from(
 		&html,
@@ -260,49 +305,25 @@ fn parse_story_page(html: String) {
 		8,
 	)
 	.iter()
-	.map(|id| id.parse::<i32>().unwrap())
+	.map(|id| id.parse::<u32>().unwrap())
 	.collect::<Vec<_>>();
-	println!("Similar: {similar:?}");
-
-	let banned = get_attribute_if(&html, ".user-page-header .info-container a", Some("style"))
-		.map_or(false, |style| style == "text-decoration:line-through");
-	println!("Banned: {banned}");
-
-	let offline_since = get_attribute_if(&html, ".mini-info-box [data-time]", Some("title"))
-		.map_or(unix_time().unwrap() / 1000, |time| parse_time(&time));
-	println!("Last online: {offline_since:?}");
 
 	let groups = get_attribute_if(&html, ".header-groups .count", None)
 		.map_or(0, |groups| groups.replace(',', "").parse::<u32>().unwrap());
 	println!("Groups: {groups}");
 
-	let stories = get_attribute_if(&html, ".tabs .tab-stories .number", None)
-		.map_or(0, |stories| {
-			stories.replace(',', "").parse::<u32>().unwrap()
-		});
-	println!("Stories: {stories}");
-
-	let blogs = get_attribute_if(&html, ".tabs .tab-blog .number", None)
-		.map_or(0, |blogs| blogs.replace(',', "").parse::<u32>().unwrap());
-	println!("Blogs: {blogs}");
-
-	let followers = get_attribute_if(&html, ".tabs .tab-followers .number", None)
-		.map_or(0, |followers| {
-			followers.replace(',', "").parse::<u32>().unwrap()
-		});
-	println!("Followers: {followers}");
-
-	let following = get_attribute_if(&html, ".tabs .tab-following .number", None)
-		.map_or(0, |following| {
-			following.replace(',', "").parse::<u32>().unwrap()
-		});
-	println!("Following: {following}");
-
 	let page_time = get_page_time(&html);
-	println!(
-		"Story page time: {}",
-		format_milliseconds(page_time as u128, None).unwrap()
-	);
+
+	StoryPage {
+		banned,
+		offline_since,
+		following,
+		cover_source,
+		also_liked,
+		similar,
+		groups,
+		page_time,
+	}
 }
 
 fn get_attribute_if(html: &Html, condition: &str, attribute: Option<&str>) -> Option<String> {
@@ -390,43 +411,47 @@ fn parse_time(time: &str) -> u128 {
 		.unwrap()
 }
 
-fn parse_stats_page(html: String) {
+fn parse_stats_page(html: String) -> StatsPage {
 	let html = Html::parse_document(&html);
+
+	let tags = get_story_tags(&html);
 
 	let stats = get_attribute_if(&html, ".layout-two-columns.story-stats", Some("data-data"));
 	let stats = serde_json::from_str::<Stats>(&stats.unwrap()).unwrap();
-	println!("Stats (views - day one): {:?}", stats.stats.data[0].views);
 
 	let sidebar_stats =
 		get_attributes_from_parent(&html, ".content_box .article ul li > b", None, 6);
 	let ranking = sidebar_stats.get(2).map(|s| get_right_stat(s)).unwrap();
-	println!("Ranking: {ranking}");
+
 	let word_ranking = sidebar_stats.get(3).map(|s| get_right_stat(s)).unwrap();
-	println!("Word ranking: {word_ranking}");
+
 	let bookshelves = sidebar_stats.get(4).map(|s| get_right_stat(s)).unwrap();
-	println!("Bookshelves: {bookshelves}");
+
 	let tracking = sidebar_stats.get(5).map(|s| get_right_stat(s)).unwrap();
-	println!("Tracking: {tracking}");
-	let referrals: HashMap<&str, u32> = sidebar_stats
+
+	let referrals: HashMap<String, u32> = sidebar_stats
 		.iter()
 		.skip(6)
 		.map(|referral| {
 			let data = referral.split(": ").collect::<Vec<_>>();
 			let site = data.first().unwrap();
 			let count = get_right_stat(data.last().unwrap());
-			(site.to_owned(), count)
+			(site.to_string(), count)
 		})
 		.collect();
-	println!("Referrals: {referrals:?}");
 
 	let page_time = get_page_time(&html);
-	println!(
-		"Stats page time: {}",
-		format_milliseconds(page_time as u128, None).unwrap()
-	);
 
-	let tags = get_story_tags(&html);
-	println!("Story tags: {tags:?}");
+	StatsPage {
+		tags,
+		stats,
+		ranking,
+		word_ranking,
+		bookshelves,
+		tracking,
+		referrals,
+		page_time,
+	}
 }
 
 fn get_attributes_from_parent(

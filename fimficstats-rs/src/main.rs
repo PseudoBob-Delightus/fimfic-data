@@ -5,7 +5,7 @@ use pony::time::format_milliseconds;
 use pony::traits::OrderedVector;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
-use rusqlite::{Connection, Params};
+use rusqlite::{params, Connection, Params};
 use scraper::{ElementRef, Html, Selector};
 use std::collections::HashMap;
 use std::env;
@@ -77,7 +77,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	println!("Program started at: {}", Utc::now());
 	let program_start = unix_time()?;
 
-	let db = setup_database()?;
+	let version = 1.0;
+
+	let mut db = setup_database()?;
 
 	// Set the max number of consecutive deleted stories before stopping the script.
 	let max_endpoint = 512;
@@ -147,6 +149,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		// Checks to see if the story is deleted or unpublished.
 		if api_response.status().is_client_error() {
+			db.execute(
+				include_str!("../queries/insert/story-index.sql"),
+				params![
+					id,
+					"unknown",
+					version,
+					start_time as u64,
+					"NULL",
+					"NULL",
+					"NULL"
+				],
+			)?;
 			times.insert((unix_time()? - start_time) as u32);
 			current_endpoint += 1;
 			continue;
@@ -168,14 +182,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		let parse_start = unix_time()?;
 		println!("Published story: {id}");
-		parse_response(response).await;
+		let data = parse_response(response).await;
+		let parse_end = unix_time()?;
+
+		let insert_start = unix_time()?;
+		insert_data(&mut db, data, version, start_time as u64)?;
 
 		let end_time = unix_time()?;
 		times.insert((end_time - start_time) as u32);
 
 		println!(
 			"Time to parse: {}",
-			format_milliseconds(end_time - parse_start, None)?
+			format_milliseconds(parse_end - parse_start, None)?
+		);
+		println!(
+			"Time to insert: {}",
+			format_milliseconds(end_time - insert_start, None)?
 		)
 	}
 
@@ -531,4 +553,34 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	tx.execute(include_str!("../queries/create/similar.sql"), [])?;
 	tx.commit()?;
 	Ok(db)
+}
+
+fn insert_data(
+	db: &mut Connection, data: StoryData, version: f32, timestamp: u64,
+) -> Result<(), Box<dyn Error>> {
+	let api_time = (data
+		.api
+		.debug
+		.duration
+		.split(' ')
+		.collect::<Vec<_>>()
+		.first()
+		.unwrap()
+		.parse::<f32>()?
+		* 1000.0) as u32;
+	let tx = db.transaction()?;
+	tx.execute(
+		include_str!("../queries/insert/story-index.sql"),
+		params![
+			data.api.data.id,
+			"published",
+			version,
+			timestamp,
+			api_time,
+			data.story.page_time,
+			data.stats.page_time
+		],
+	)?;
+	tx.commit()?;
+	Ok(())
 }

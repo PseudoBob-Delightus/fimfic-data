@@ -493,13 +493,13 @@ fn get_story_tags(html: &Html) -> Vec<StoryTag> {
 fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	let mut db = Connection::open("./fimfic-stats.db")?;
 	let tx = db.transaction()?;
-	tx.execute(include_str!("../queries/story-index-table.sql"), [])?;
-	tx.execute(include_str!("../queries/authors-table.sql"), [])?;
-	tx.execute(include_str!("../queries/stories-table.sql"), [])?;
-	tx.execute(include_str!("../queries/tags-table.sql"), [])?;
-	tx.execute(include_str!("../queries/tag-links-table.sql"), [])?;
-	tx.execute(include_str!("../queries/chapters-table.sql"), [])?;
-	tx.execute(include_str!("../queries/stats-table.sql"), [])?;
+	tx.execute(include_str!("../queries/create/story-index.sql"), [])?;
+	tx.execute(include_str!("../queries/create/authors.sql"), [])?;
+	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
+	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
+	tx.execute(include_str!("../queries/create/tag-links.sql"), [])?;
+	tx.execute(include_str!("../queries/create/chapters.sql"), [])?;
+	tx.execute(include_str!("../queries/create/stats.sql"), [])?;
 	tx.commit()?;
 	Ok(db)
 }

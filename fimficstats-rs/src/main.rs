@@ -500,6 +500,10 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	tx.execute(include_str!("../queries/create/tag-links.sql"), [])?;
 	tx.execute(include_str!("../queries/create/chapters.sql"), [])?;
 	tx.execute(include_str!("../queries/create/stats.sql"), [])?;
+	tx.execute(include_str!("../queries/create/referral-sites.sql"), [])?;
+	tx.execute(include_str!("../queries/create/referrals.sql"), [])?;
+	tx.execute(include_str!("../queries/create/also-liked.sql"), [])?;
+	tx.execute(include_str!("../queries/create/similar.sql"), [])?;
 	tx.commit()?;
 	Ok(db)
 }

@@ -48,7 +48,7 @@ struct StoryPage {
 	also_liked: Vec<u32>,
 	similar: Vec<u32>,
 	groups: u32,
-	page_time: f32,
+	page_time: String,
 }
 
 #[derive(Debug, Clone)]
@@ -60,7 +60,7 @@ struct StatsPage {
 	bookshelves: u32,
 	tracking: u32,
 	referrals: HashMap<String, u32>,
-	page_time: f32,
+	page_time: String,
 }
 
 #[derive(Debug, Clone)]
@@ -71,94 +71,6 @@ struct StoryTag {
 	href: String,
 	text: String,
 }
-
-#[derive(Debug, Clone)]
-struct StoryIndex {
-	story_id: i32,
-	status: String,
-	version: i32,
-	timestamp: i32,
-	api_time: Option<i32>,
-	story_page_time: Option<i32>,
-	stats_page_time: Option<i32>,
-}
-
-#[derive(Debug, Clone)]
-struct Story {
-	id: i32,
-	title: String,
-	date_modified: i32,
-	date_updated: i32,
-	date_published: i32,
-	cover: i32,
-	cover_source: String,
-	color_hex: i32,
-	views: i32,
-	total_views: i32,
-	num_comments: i32,
-	featured: i32,
-	rating: i32,
-	completion_status: String,
-	content_rating: String,
-	likes: i32,
-	dislikes: i32,
-	ranking: i32,
-	word_ranking: i32,
-	bookshelves: i32,
-	tracking: i32,
-	groups: i32,
-	author_id: i32,
-	prequel_id: Option<i32>,
-}
-
-#[derive(Debug, Clone)]
-struct AuthorData {
-	id: u32,
-	name: String,
-	blogs: u32,
-	followers: u32,
-	following: u32,
-	banned: bool,
-	offline_since: u128,
-	date_joined: u128,
-	bio: String,
-	bio_html: String,
-	color_hex: String,
-	avatar_32: String,
-	avatar_48: String,
-	avatar_64: String,
-	avatar_96: String,
-	avatar_128: String,
-	avatar_160: String,
-	avatar_192: String,
-	avatar_256: String,
-	avatar_320: String,
-	avatar_384: String,
-	avatar_512: String,
-}
-
-#[derive(Debug, Clone)]
-struct Chapter {
-	story_id: i32,
-	chapter_num: i32,
-	title: String,
-	date_modified: i32,
-	views: i32,
-	words: i32,
-}
-
-#[derive(Debug, Clone)]
-struct StatsData {
-	story_id: i32,
-	date: i32,
-	views: Option<i32>,
-	likes: Option<i32>,
-	dislikes: Option<i32>,
-}
-
-type AlsoLiked = Vec<u32>;
-type Similar = Vec<u32>;
-type Referrals = HashMap<String, u32>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -595,17 +507,17 @@ fn get_right_stat(text: &str) -> u32 {
 		.unwrap()
 }
 
-fn get_page_time(html: &Html) -> f32 {
+fn get_page_time(html: &Html) -> String {
 	let page_time = get_attributes_from(html, ".footer .block .highlight", None, 12);
 	let page_time = page_time.first().and_then(|s| {
 		let parts: Vec<_> = s.split(' ').collect();
 		if parts.len() == 2 && parts[1] == "seconds" {
-			parts[0].parse::<f32>().ok()
+			Some(parts[0])
 		} else {
 			None
 		}
 	});
-	page_time.unwrap()
+	page_time.unwrap().to_string()
 }
 
 fn get_story_tags(html: &Html) -> Vec<StoryTag> {
@@ -645,7 +557,7 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 fn insert_data(
 	db: &mut Connection, data: FragmentedData, version: f32, timestamp: u64,
 ) -> Result<(), Box<dyn Error>> {
-	let api_time = data.api.debug.duration.split(' ').collect::<Vec<_>>()[0].parse::<f64>()?;
+	let api_time = data.api.debug.duration.split(' ').collect::<Vec<_>>()[0].to_string();
 	let tx = db.transaction()?;
 	tx.execute(
 		include_str!("../queries/insert/story-index.sql"),
@@ -659,6 +571,7 @@ fn insert_data(
 			data.stats.page_time
 		],
 	)?;
+	tx.execute(include_str!("../queries/insert/author.sql"), [])?;
 	tx.commit()?;
 	Ok(())
 }

@@ -114,6 +114,7 @@ pub struct DataMeta {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(untagged)]
 pub enum ApiIncluded {
 	Tag(IncludedTag),
 	Author(IncludedAuthor),

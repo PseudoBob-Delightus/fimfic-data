@@ -52,18 +52,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let interval = 60_000;
 
 	loop {
-		let start_time = unix_time()?;
-		let end_time = start_time % interval;
-		sleep(start_time, Duration::from_millis(end_time as u64)).await?;
+		//let start_time = unix_time()?;
+		//let end_time = start_time % interval;
+		//sleep(start_time, Duration::from_millis(end_time as u64)).await?;
 
 		let heat_response = handle_request(api.clone(), &heat_domain).await?;
 		let new_response = handle_request(api.clone(), &new_domain).await?;
 		let updated_response = handle_request(api.clone(), &updated_domain).await?;
-		println!("{}", &heat_response.text().await?);
-		//let heat = heat_response.json::<Api>().await?;
+
+		let heat = heat_response.json::<Api>().await?;
 		let new = new_response.json::<Api>().await?;
 		let updated = updated_response.json::<Api>().await?;
-		//println!("{heat:#?}\n{new:#?}\n{updated:#?}")
+		println!("{heat:#?}\n{new:#?}\n{updated:#?}")
 	}
 }
 

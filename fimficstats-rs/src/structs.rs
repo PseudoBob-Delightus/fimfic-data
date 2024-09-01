@@ -2,8 +2,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Api {
-	pub data: ApiData,
+	pub data: Vec<ApiData>,
 	pub included: Vec<ApiIncluded>,
+	pub meta: APIMeta,
+	pub links: APILinks,
 	pub uri: String,
 	pub method: String,
 	pub debug: ApiDebug,
@@ -51,6 +53,12 @@ pub struct AttributesCoverImage {
 	pub medium: String,
 	pub large: String,
 	pub full: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AttributesColor {
+	pub hex: String,
+	pub rgb: (u32, u32, u32),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -104,17 +112,45 @@ pub struct DataMeta {
 	pub url: String,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ApiIncluded {
-	pub id: String,
-	pub r#type: String,
-	pub attributes: IncludedAttributes,
-	pub links: IncludedLinks,
-	pub meta: IncludedMeta,
+pub enum ApiIncluded {
+	Tag(IncludedTag),
+	Author(IncludedAuthor),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct IncludedAttributes {
+pub struct IncludedTag {
+	pub id: String,
+	pub r#type: String,
+	pub attributes: TagAttributes,
+	pub meta: TagMeta,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TagAttributes {
+	pub name: String,
+	pub r#type: String,
+	pub num_stories: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TagMeta {
+	pub old_id: String,
+	pub url: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct IncludedAuthor {
+	pub id: String,
+	pub r#type: String,
+	pub attributes: AuthorAttributes,
+	pub links: AuthorLinks,
+	pub meta: AuthorMeta,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AuthorAttributes {
 	pub name: String,
 	pub bio: String,
 	pub bio_html: String,
@@ -153,20 +189,26 @@ pub struct AttributesAvatar {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct AttributesColor {
-	pub hex: String,
-	pub rgb: (u32, u32, u32),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct IncludedLinks {
+pub struct AuthorLinks {
 	#[serde(rename = "self")]
 	pub link: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct IncludedMeta {
+pub struct AuthorMeta {
 	pub url: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct APILinks {
+	pub first: String,
+	pub prev: String,
+	pub next: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct APIMeta {
+	pub num_stories: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

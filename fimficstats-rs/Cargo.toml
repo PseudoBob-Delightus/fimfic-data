@@ -10,14 +10,12 @@ publish = false
 
 [dependencies]
 chrono = { version = "0.4.38" }
-lazy_static = { version = "1.5.0" }
 pony = { git = "https://github.com/SilkRose/Pony" }
-reqwest = { version = "0.12.5", features = ["json"] }
-rusqlite = { version = "0.32.0", features = ["bundled"] }
-scraper = { version = "0.19.1" }
-serde = { version = "1.0.204", features = ["derive"] }
-serde_json = { version = "1.0.120", features = ["preserve_order"] }
-tokio = { version = "1.39.1", features = ["full"] }
+reqwest = { version = "0.12.7", features = ["json"] }
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+serde = { version = "1.0.209", features = ["derive"] }
+serde_json = { version = "1.0.127", features = ["preserve_order"] }
+tokio = { version = "1.40.0", features = ["full"] }
 
 [profile.dev]
 opt-level = 0

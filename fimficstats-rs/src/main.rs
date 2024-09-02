@@ -59,15 +59,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		let one = unix_time()?;
 		let heat_response = handle_request(api.clone(), &heat_domain).await?;
+		let heat = heat_response.json::<Api>().await?;
 		let two = unix_time()?;
 		let new_response = handle_request(api.clone(), &new_domain).await?;
+		let new = new_response.json::<Api>().await?;
 		let three = unix_time()?;
 		let updated_response = handle_request(api.clone(), &updated_domain).await?;
+		let updated = updated_response.json::<Api>().await?;
 		let four = unix_time()?;
 
-		let heat = heat_response.json::<Api>().await?;
-		let new = new_response.json::<Api>().await?;
-		let updated = updated_response.json::<Api>().await?;
 		let mut stories = vec![];
 		stories.extend(heat.data);
 		stories.extend(new.data);

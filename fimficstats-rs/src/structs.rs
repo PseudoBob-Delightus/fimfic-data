@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Api {
 	pub data: Vec<ApiData>,
 	pub included: Vec<ApiIncluded>,
@@ -11,7 +11,7 @@ pub struct Api {
 	pub debug: ApiDebug,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ApiData {
 	pub id: String,
 	pub r#type: String,
@@ -21,7 +21,7 @@ pub struct ApiData {
 	pub meta: DataMeta,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DataAttributes {
 	pub title: String,
 	pub short_description: String,
@@ -47,7 +47,7 @@ pub struct DataAttributes {
 	pub num_dislikes: i32,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AttributesCoverImage {
 	pub thumbnail: String,
 	pub medium: String,
@@ -55,72 +55,72 @@ pub struct AttributesCoverImage {
 	pub full: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AttributesColor {
 	pub hex: String,
 	pub rgb: (u32, u32, u32),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DataRelationships {
 	pub author: RelationshipAuthor,
 	pub tags: RelationshipTags,
 	pub prequel: Option<RelationshipPrequel>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RelationshipAuthor {
 	pub data: AuthorData,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AuthorData {
 	pub r#type: String,
 	pub id: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RelationshipTags {
 	pub data: Vec<TagData>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TagData {
 	pub r#type: String,
 	pub id: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RelationshipPrequel {
 	pub data: PrequelData,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PrequelData {
 	pub r#type: String,
 	pub id: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DataLinks {
 	#[serde(rename = "self")]
 	pub link: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DataMeta {
 	pub url: String,
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(untagged)]
 pub enum ApiIncluded {
 	Tag(IncludedTag),
 	Author(IncludedAuthor),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IncludedTag {
 	pub id: String,
 	pub r#type: String,
@@ -128,20 +128,20 @@ pub struct IncludedTag {
 	pub meta: TagMeta,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TagAttributes {
 	pub name: String,
 	pub r#type: String,
 	pub num_stories: u32,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TagMeta {
 	pub old_id: String,
 	pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IncludedAuthor {
 	pub id: String,
 	pub r#type: String,
@@ -150,7 +150,7 @@ pub struct IncludedAuthor {
 	pub meta: AuthorMeta,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AuthorAttributes {
 	pub name: String,
 	pub bio: String,
@@ -163,7 +163,7 @@ pub struct AuthorAttributes {
 	pub date_joined: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AttributesAvatar {
 	#[serde(rename = "32")]
 	pub r32: String,
@@ -189,30 +189,30 @@ pub struct AttributesAvatar {
 	pub r512: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AuthorLinks {
 	#[serde(rename = "self")]
 	pub link: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AuthorMeta {
 	pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct APILinks {
 	pub first: String,
 	pub prev: String,
 	pub next: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct APIMeta {
 	pub num_stories: u32,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ApiDebug {
 	pub duration: String,
 }

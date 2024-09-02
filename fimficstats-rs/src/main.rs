@@ -1,6 +1,6 @@
 use self::structs::Api;
 use chrono::Utc;
-use pony::time::sleep_until_interval;
+use pony::time::{format_milliseconds, sleep_until_interval};
 use pony::traits::compare;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
@@ -36,6 +36,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let heat_domain = format!("{fimfic}&sort=-hotness");
 	let new_domain = format!("{fimfic}&sort=-date_published");
 	let updated_domain = format!("{fimfic}&sort=-date_updated");
+	let featured_domain = format!("{fimfic}&filter%5Bbookshelf%5D=1");
 
 	// API Bearer token is required to scrape the data.
 	let token = &env::args().collect::<Vec<_>>()[1];
@@ -76,6 +77,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		stories.sort_by(|a, b| compare(&a.id, &b.id));
 		stories.dedup_by(|a, b| a.id == b.id);
 		println!("After: {}", stories.len());
+
+		let story_ids = stories.iter().map(|s| s.id.clone()).collect::<Vec<_>>();
+
+		println!("{story_ids:?}");
+
+		let featured = story_ids.chunks(100).map(|c| {
+			let ids = c.join(",");
+			let url = format!("{featured_domain}&filter%5Bids%5D={ids}");
+		});
+
+		let end_time = unix_time()?;
+		let time = format_milliseconds(end_time - start_time, None)?;
+		println!("Time: {time}");
 	}
 }
 
@@ -145,12 +159,6 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tag-links.sql"), [])?;
-	tx.execute(include_str!("../queries/create/chapters.sql"), [])?;
-	tx.execute(include_str!("../queries/create/stats.sql"), [])?;
-	tx.execute(include_str!("../queries/create/referral-sites.sql"), [])?;
-	tx.execute(include_str!("../queries/create/referrals.sql"), [])?;
-	tx.execute(include_str!("../queries/create/also-liked.sql"), [])?;
-	tx.execute(include_str!("../queries/create/similar.sql"), [])?;
 	tx.commit()?;
 	Ok(db)
 }

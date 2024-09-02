@@ -1,6 +1,7 @@
 use self::structs::Api;
 use chrono::Utc;
 use pony::time::sleep_until_interval;
+use pony::traits::compare;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
 use rusqlite::{params, Connection};
@@ -49,21 +50,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		timeout: Duration::from_secs(10),
 	};
 
-	let interval = 60_000;
+	let interval = 1_000;
 
 	loop {
-		//let start_time = unix_time()?;
-		//let end_time = start_time % interval;
-		//sleep(start_time, Duration::from_millis(end_time as u64)).await?;
+		let start_time = unix_time()?;
+		let end_time = start_time % interval;
+		sleep(start_time, Duration::from_millis(end_time as u64)).await?;
 
+		let one = unix_time()?;
 		let heat_response = handle_request(api.clone(), &heat_domain).await?;
+		let two = unix_time()?;
 		let new_response = handle_request(api.clone(), &new_domain).await?;
+		let three = unix_time()?;
 		let updated_response = handle_request(api.clone(), &updated_domain).await?;
+		let four = unix_time()?;
 
 		let heat = heat_response.json::<Api>().await?;
 		let new = new_response.json::<Api>().await?;
 		let updated = updated_response.json::<Api>().await?;
-		println!("{heat:#?}\n{new:#?}\n{updated:#?}")
+		let mut stories = vec![];
+		stories.extend(heat.data);
+		stories.extend(new.data);
+		stories.extend(updated.data);
+		println!("Before: {}", stories.len());
+		stories.sort_by(|a, b| compare(&a.id, &b.id));
+		stories.dedup_by(|a, b| a.id == b.id);
+		println!("After: {}", stories.len());
 	}
 }
 
@@ -123,17 +135,6 @@ async fn sleep(start_time: u128, interval: Duration) -> Result<(), Box<dyn Error
 
 fn unix_time() -> Result<u128, Box<dyn Error>> {
 	Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis())
-}
-
-fn get_right_stat(text: &str) -> u32 {
-	text.split(':')
-		.last()
-		.unwrap()
-		.chars()
-		.filter(|c| c.is_ascii_digit())
-		.collect::<String>()
-		.parse::<u32>()
-		.unwrap()
 }
 
 fn setup_database() -> Result<Connection, Box<dyn Error>> {

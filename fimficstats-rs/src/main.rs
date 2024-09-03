@@ -22,12 +22,13 @@ struct FimficRequest {
 	timeout: Duration,
 }
 
+const VERSION: f64 = 1.0;
+const TYPES: &[(i32, &str)] = &[(0, "new"), (1, "updated"), (2, "heat"), (3, "featured")];
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	println!("Program started at: {}", Utc::now());
 	let program_start = unix_time()?;
-
-	let version = 1.0;
 
 	let mut db = setup_database()?;
 
@@ -53,6 +54,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	let interval = 1_000;
 
+	let mut itteration = db
+		.execute(include_str!("../queries/select/request-index.sql"), [])
+		.unwrap_or(0)
+		+ 1;
+
 	loop {
 		let start_time = unix_time()?;
 		let end_time = start_time % interval;
@@ -68,6 +74,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let updated_response = handle_request(api.clone(), &updated_domain).await?;
 		let updated = updated_response.json::<Api>().await?;
 		let four = unix_time()?;
+
+		insert_request(
+			&db,
+			&new,
+			itteration,
+			100,
+			one.try_into()?,
+			two.try_into()?,
+			0,
+		)?;
 
 		let mut stories = vec![];
 		stories.extend(heat.data);
@@ -90,6 +106,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let end_time = unix_time()?;
 		let time = format_milliseconds(end_time - start_time, None)?;
 		println!("Time: {time}");
+
+		itteration += 1;
 	}
 }
 
@@ -154,11 +172,51 @@ fn unix_time() -> Result<u128, Box<dyn Error>> {
 fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	let mut db = Connection::open("./fimfic-stats.db")?;
 	let tx = db.transaction()?;
+	tx.execute(include_str!("../queries/create/request-index.sql"), [])?;
+	tx.execute(include_str!("../queries/create/request-type.sql"), [])?;
 	tx.execute(include_str!("../queries/create/story-index.sql"), [])?;
 	tx.execute(include_str!("../queries/create/authors.sql"), [])?;
 	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tag-links.sql"), [])?;
+	for r#type in TYPES {
+		tx.execute(
+			include_str!("../queries/insert/request-type.sql"),
+			params![r#type.0, r#type.1],
+		)?;
+	}
 	tx.commit()?;
 	Ok(db)
+}
+
+fn insert_request(
+	db: &Connection, request: &Api, itteration: usize, stories_requested: u32, start: u64,
+	end: u64, type_id: u8,
+) -> Result<(), Box<dyn Error>> {
+	let mut tags = 0;
+	let mut authors = 0;
+	for attribute in &request.included {
+		match attribute {
+			structs::ApiIncluded::Tag(_) => tags += 1,
+			structs::ApiIncluded::Author(_) => authors += 1,
+		}
+	}
+	db.execute(
+		include_str!("../queries/insert/request-index.sql"),
+		params![
+			type_id,
+			itteration,
+			VERSION,
+			start,
+			request.debug.duration,
+			end - start,
+			stories_requested,
+			request.data.len(),
+			tags,
+			authors,
+			request.meta.num_stories
+		],
+	)?;
+
+	Ok(())
 }

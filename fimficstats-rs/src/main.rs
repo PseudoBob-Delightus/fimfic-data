@@ -4,7 +4,7 @@ use pony::time::{format_milliseconds, sleep_until_interval};
 use pony::traits::compare;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
 use reqwest::{Client, Response};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, Transaction};
 use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -68,6 +68,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let end_time = start_time % interval;
 		sleep(start_time, Duration::from_millis(end_time as u64)).await?;
 
+		let tx = db.transaction()?;
+
 		let one = unix_time()?;
 		let new_response = handle_request(api.clone(), &new_domain).await?;
 		let new = new_response.json::<Api>().await?;
@@ -80,7 +82,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let four = unix_time()?;
 
 		insert_request(
-			&db,
+			&tx,
 			&new,
 			iteration,
 			100,
@@ -90,7 +92,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)?;
 
 		insert_request(
-			&db,
+			&tx,
 			&updated,
 			iteration,
 			100,
@@ -100,7 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)?;
 
 		insert_request(
-			&db,
+			&tx,
 			&heat,
 			iteration,
 			100,
@@ -124,6 +126,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			let ids = c.join(",");
 			let url = format!("{featured_domain}&filter%5Bids%5D={ids}");
 		});
+
+		tx.commit()?;
 
 		let end_time = unix_time()?;
 		let time = format_milliseconds(end_time - start_time, None)?;
@@ -212,8 +216,8 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 }
 
 fn insert_request(
-	db: &Connection, request: &Api, iteration: usize, stories_requested: u32, start: u64, end: u64,
-	type_id: u8,
+	tx: &Transaction<'_>, request: &Api, iteration: usize, stories_requested: u32, start: u64,
+	end: u64, type_id: u8,
 ) -> Result<(), Box<dyn Error>> {
 	let mut tags = 0;
 	let mut authors = 0;
@@ -223,7 +227,7 @@ fn insert_request(
 			structs::ApiIncluded::Author(_) => authors += 1,
 		}
 	}
-	db.execute(
+	tx.execute(
 		include_str!("../queries/insert/request-index.sql"),
 		params![
 			type_id,

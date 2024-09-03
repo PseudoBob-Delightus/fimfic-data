@@ -54,8 +54,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	let interval = 1_000;
 
-	let mut itteration = db
-		.execute(include_str!("../queries/select/request-index.sql"), [])
+	let mut iteration = db
+		.query_row(
+			include_str!("../queries/select/request-index.sql"),
+			[],
+			|row| row.get(0),
+		)
 		.unwrap_or(0)
 		+ 1;
 
@@ -65,24 +69,44 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		sleep(start_time, Duration::from_millis(end_time as u64)).await?;
 
 		let one = unix_time()?;
-		let heat_response = handle_request(api.clone(), &heat_domain).await?;
-		let heat = heat_response.json::<Api>().await?;
-		let two = unix_time()?;
 		let new_response = handle_request(api.clone(), &new_domain).await?;
 		let new = new_response.json::<Api>().await?;
-		let three = unix_time()?;
+		let two = unix_time()?;
 		let updated_response = handle_request(api.clone(), &updated_domain).await?;
 		let updated = updated_response.json::<Api>().await?;
+		let three = unix_time()?;
+		let heat_response = handle_request(api.clone(), &heat_domain).await?;
+		let heat = heat_response.json::<Api>().await?;
 		let four = unix_time()?;
 
 		insert_request(
 			&db,
 			&new,
-			itteration,
+			iteration,
 			100,
 			one.try_into()?,
 			two.try_into()?,
 			0,
+		)?;
+
+		insert_request(
+			&db,
+			&updated,
+			iteration,
+			100,
+			two.try_into()?,
+			three.try_into()?,
+			1,
+		)?;
+
+		insert_request(
+			&db,
+			&heat,
+			iteration,
+			100,
+			three.try_into()?,
+			four.try_into()?,
+			2,
 		)?;
 
 		let mut stories = vec![];
@@ -96,8 +120,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 		let story_ids = stories.iter().map(|s| s.id.clone()).collect::<Vec<_>>();
 
-		println!("{story_ids:?}");
-
 		let featured = story_ids.chunks(100).map(|c| {
 			let ids = c.join(",");
 			let url = format!("{featured_domain}&filter%5Bids%5D={ids}");
@@ -107,7 +129,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let time = format_milliseconds(end_time - start_time, None)?;
 		println!("Time: {time}");
 
-		itteration += 1;
+		iteration += 1;
 	}
 }
 
@@ -190,8 +212,8 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 }
 
 fn insert_request(
-	db: &Connection, request: &Api, itteration: usize, stories_requested: u32, start: u64,
-	end: u64, type_id: u8,
+	db: &Connection, request: &Api, iteration: usize, stories_requested: u32, start: u64, end: u64,
+	type_id: u8,
 ) -> Result<(), Box<dyn Error>> {
 	let mut tags = 0;
 	let mut authors = 0;
@@ -205,7 +227,7 @@ fn insert_request(
 		include_str!("../queries/insert/request-index.sql"),
 		params![
 			type_id,
-			itteration,
+			iteration,
 			VERSION,
 			start,
 			request.debug.duration,

@@ -1,8 +1,8 @@
 use self::structs::Api;
 use chrono::Utc;
-use pony::time::{format_milliseconds, sleep_until_interval};
+use pony::time::format_milliseconds;
 use pony::traits::compare;
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Client, Response};
 use rusqlite::{params, Connection, Transaction};
 use std::env;
@@ -28,7 +28,6 @@ const TYPES: &[(u8, &str)] = &[(0, "new"), (1, "updated"), (2, "heat"), (3, "fea
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	println!("Program started at: {}", Utc::now());
-	let program_start = unix_time()?;
 
 	let mut db = setup_database()?;
 
@@ -112,13 +111,39 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)?;
 
 		let mut stories = vec![];
-		stories.extend(heat.data);
 		stories.extend(new.data);
 		stories.extend(updated.data);
-		println!("Before: {}", stories.len());
+		stories.extend(heat.data);
 		stories.sort_by(|a, b| compare(&a.id, &b.id));
 		stories.dedup_by(|a, b| a.id == b.id);
-		println!("After: {}", stories.len());
+
+		let mut tags = vec![];
+		let mut authors = vec![];
+		let mut included = vec![];
+
+		included.extend(new.included);
+		included.extend(updated.included);
+		included.extend(heat.included);
+
+		for include in included {
+			match include {
+				structs::ApiIncluded::Tag(tag) => tags.push(tag),
+				structs::ApiIncluded::Author(author) => authors.push(author),
+			}
+		}
+
+		tags.sort_by(|a, b| compare(&a.id, &b.id));
+		tags.dedup_by(|a, b| a.id == b.id);
+
+		authors.sort_by(|a, b| compare(&a.id, &b.id));
+		authors.dedup_by(|a, b| a.id == b.id);
+
+		println!(
+			"Stories: {}, Tags: {}, Authors: {}",
+			stories.len(),
+			tags.len(),
+			authors.len()
+		);
 
 		let story_ids = stories.iter().map(|s| s.id.clone()).collect::<Vec<_>>();
 
@@ -201,7 +226,7 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	tx.execute(include_str!("../queries/create/request-index.sql"), [])?;
 	tx.execute(include_str!("../queries/create/request-type.sql"), [])?;
 	tx.execute(include_str!("../queries/create/story-index.sql"), [])?;
-	tx.execute(include_str!("../queries/create/authors.sql"), [])?;
+	tx.execute(include_str!("../queries/create/author-index.sql"), [])?;
 	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tag-links.sql"), [])?;

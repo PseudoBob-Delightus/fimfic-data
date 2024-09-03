@@ -23,7 +23,7 @@ struct FimficRequest {
 }
 
 const VERSION: f64 = 1.0;
-const TYPES: &[(i32, &str)] = &[(0, "new"), (1, "updated"), (2, "heat"), (3, "featured")];
+const TYPES: &[(u8, &str)] = &[(0, "new"), (1, "updated"), (2, "heat"), (3, "featured")];
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			100,
 			one.try_into()?,
 			two.try_into()?,
-			0,
+			TYPES[0].0,
 		)?;
 
 		insert_request(
@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			100,
 			two.try_into()?,
 			three.try_into()?,
-			1,
+			TYPES[1].0,
 		)?;
 
 		insert_request(
@@ -108,7 +108,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			100,
 			three.try_into()?,
 			four.try_into()?,
-			2,
+			TYPES[2].0,
 		)?;
 
 		let mut stories = vec![];

@@ -1,9 +1,9 @@
 INSERT INTO
-	Authors (id, name, date_joined, followers, blogs)
+	Authors (id, name, bio_length, date_joined, avatar)
 VALUES
 	(?1, ?2, ?3, ?4, ?5)
 ON CONFLICT(id) DO UPDATE SET
 	name = excluded.name,
+	bio_length = excluded.bio_length,
 	date_joined = excluded.date_joined,
-	followers = excluded.followers,
-	blogs = excluded.blogs;
+	avatar = excluded.avatar;

@@ -1,0 +1,1 @@
+SELECT EXISTS(SELECT 1 FROM Stories WHERE id = ?1);

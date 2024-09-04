@@ -1,4 +1,4 @@
-INSERT INTO Request_index (
+INSERT INTO Requests (
 	request_type_id, loop_index, version,
 	timestamp, api_duration_sec, round_trip_time_ms,
 	stories_requested, stories_returned,

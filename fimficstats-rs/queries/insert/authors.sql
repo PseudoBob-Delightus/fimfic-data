@@ -1,5 +1,5 @@
 INSERT INTO
-	Author_index (id, name, bio_length, date_joined, avatar)
+	Authors (id, name, bio_length, date_joined, avatar)
 VALUES
 	(?1, ?2, ?3, ?4, ?5)
 ON CONFLICT(id) DO UPDATE SET

@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS Author_index (
+CREATE TABLE IF NOT EXISTS Authors (
 	id          integer NOT NULL PRIMARY KEY,
 	name        text    NOT NULL,
 	bio_length  integer NOT NULL,

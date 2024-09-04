@@ -1,4 +1,5 @@
 CREATE TABLE IF NOT EXISTS Story_updates (
+	index             integer PRIMARY KEY autoincrement,
 	id                integer NOT NULL,
 	loop_index        integer NOT NULL,
 	date_modified     integer NOT NULL,
@@ -17,7 +18,5 @@ CREATE TABLE IF NOT EXISTS Story_updates (
 			REFERENCES Authors (id),
 
 		CONSTRAINT story_index_id_fk FOREIGN KEY (id)
-			REFERENCES Story_index (story_id),
-
-		CONSTRAINT story_updates_pk PRIMARY KEY (story_id, loop_index)
+			REFERENCES Story_index (story_id)
 )

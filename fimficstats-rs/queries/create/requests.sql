@@ -10,5 +10,8 @@ CREATE TABLE IF NOT EXISTS Requests (
 	stories_returned   integer NOT NULL,
 	tags_returned      integer NOT NULL,
 	authors_returned   integer NOT NULL,
-	total_stories      integer NOT NULL
+	total_stories      integer NOT NULL,
+
+	CONSTRAINT requests_request_type_id_fk FOREIGN KEY (request_type_id)
+		REFERENCES Request_type (id),
 );

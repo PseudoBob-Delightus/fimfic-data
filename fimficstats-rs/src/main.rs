@@ -223,10 +223,10 @@ fn unix_time() -> Result<u128, Box<dyn Error>> {
 fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	let mut db = Connection::open("./fimfic-stats.db")?;
 	let tx = db.transaction()?;
-	tx.execute(include_str!("../queries/create/request-index.sql"), [])?;
+	tx.execute(include_str!("../queries/create/requests.sql"), [])?;
 	tx.execute(include_str!("../queries/create/request-type.sql"), [])?;
-	tx.execute(include_str!("../queries/create/story-index.sql"), [])?;
-	tx.execute(include_str!("../queries/create/author-index.sql"), [])?;
+	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
+	tx.execute(include_str!("../queries/create/authors.sql"), [])?;
 	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tag-links.sql"), [])?;
@@ -253,7 +253,7 @@ fn insert_request(
 		}
 	}
 	tx.execute(
-		include_str!("../queries/insert/request-index.sql"),
+		include_str!("../queries/insert/requests.sql"),
 		params![
 			type_id,
 			iteration,

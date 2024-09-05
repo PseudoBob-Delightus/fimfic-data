@@ -6,6 +6,6 @@ CREATE TABLE IF NOT EXISTS Author_updates (
 	stories    integer NOT NULL,
 	blogs      integer NOT NULL,
 
-		CONSTRAINT author_updates_authors_fk FOREIGN KEY (author_id)
-			REFERENCES Authors (id)
+	CONSTRAINT author_updates_author_id_fk FOREIGN KEY (author_id)
+		REFERENCES Authors (id)
 );

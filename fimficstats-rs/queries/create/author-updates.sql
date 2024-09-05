@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS Author_updates (
 
 	CONSTRAINT author_updates_author_id_fk FOREIGN KEY (author_id)
 		REFERENCES Authors (id),
-	
+
 	CONSTRAINT author_updates_loop_id_fk FOREIGN KEY (loop_id)
 		REFERENCES Loops (id)
 );

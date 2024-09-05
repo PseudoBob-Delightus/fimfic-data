@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS Requests (
 
 	CONSTRAINT requests_request_type_id_fk FOREIGN KEY (request_type_id)
 		REFERENCES Request_type (id),
-	
+
 	CONSTRAINT requests_loop_id_fk FOREIGN KEY (loop_id)
 		REFERENCES Loops (id)
 );

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS Story_updates (
 
 	CONSTRAINT story_updates_story_id_fk FOREIGN KEY (story_id)
 		REFERENCES Stories (id),
-	
+
 	CONSTRAINT story_updates_loop_id_fk FOREIGN KEY (loop_id)
 		REFERENCES Loops (id),
 

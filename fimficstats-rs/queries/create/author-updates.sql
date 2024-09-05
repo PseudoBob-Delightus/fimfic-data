@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS Author_updates (
-	index      integer PRIMARY KEY AUTOINCREMENT,
+	index      integer PRIMARY KEY autoincrement,
 	author_id  integer NOT NULL,
 	loop_id    integer NOT NULL,
 	followers  integer NOT NULL,

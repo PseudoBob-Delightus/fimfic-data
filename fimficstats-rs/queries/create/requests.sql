@@ -1,8 +1,7 @@
 CREATE TABLE IF NOT EXISTS Requests (
 	id                 integer PRIMARY KEY autoincrement,
 	request_type_id    integer NOT NULL,
-	loop_index         integer NOT NULL,
-	version            integer NOT NULL,
+	loop_id            integer NOT NULL,
 	timestamp          integer NOT NULL,
 	api_duration_sec   integer NOT NULL,
 	round_trip_time_ms integer NOT NULL,
@@ -14,4 +13,7 @@ CREATE TABLE IF NOT EXISTS Requests (
 
 	CONSTRAINT requests_request_type_id_fk FOREIGN KEY (request_type_id)
 		REFERENCES Request_type (id),
+	
+	CONSTRAINT requests_loop_id_fk FOREIGN KEY (loop_id)
+		REFERENCES Loops (id)
 );

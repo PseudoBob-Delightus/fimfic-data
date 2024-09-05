@@ -54,11 +54,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let interval = 1_000;
 
 	let mut iteration = db
-		.query_row(
-			include_str!("../queries/select/request-index.sql"),
-			[],
-			|row| row.get(0),
-		)
+		.query_row(include_str!("../queries/select/loop-max.sql"), [], |row| {
+			row.get(0)
+		})
 		.unwrap_or(0)
 		+ 1;
 
@@ -223,13 +221,18 @@ fn unix_time() -> Result<u128, Box<dyn Error>> {
 fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	let mut db = Connection::open("./fimfic-stats.db")?;
 	let tx = db.transaction()?;
-	tx.execute(include_str!("../queries/create/requests.sql"), [])?;
-	tx.execute(include_str!("../queries/create/request-type.sql"), [])?;
-	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
+	tx.execute(include_str!("../queries/create/author-updates.sql"), [])?;
 	tx.execute(include_str!("../queries/create/authors.sql"), [])?;
+	tx.execute(include_str!("../queries/create/completion-status.sql"), [])?;
+	tx.execute(include_str!("../queries/create/content-rating.sql"), [])?;
+	tx.execute(include_str!("../queries/create/featured-stories.sql"), [])?;
+	tx.execute(include_str!("../queries/create/loops.sql"), [])?;
+	tx.execute(include_str!("../queries/create/request-type.sql"), [])?;
+	tx.execute(include_str!("../queries/create/requests.sql"), [])?;
 	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
-	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
+	tx.execute(include_str!("../queries/create/story-updates.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tag-links.sql"), [])?;
+	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
 	for r#type in TYPES {
 		tx.execute(
 			include_str!("../queries/insert/request-type.sql"),

@@ -1,4 +1,4 @@
 INSERT INTO
-	Loops (start_time, end_time, version)
+	Loops (timestamp, version)
 VALUES
-	(?1, ?2, ?3)
+	(?1, ?2)

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS Story_updates (
-	id                   integer PRIMARY KEY autoincrement,
+	id                   integer PRIMARY KEY AUTOINCREMENT,
 	story_id             integer NOT NULL,
 	loop_id              integer NOT NULL,
 	date_modified        integer NOT NULL,

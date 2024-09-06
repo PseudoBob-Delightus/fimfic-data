@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS Requests (
-	id                 integer PRIMARY KEY autoincrement,
+	id                 integer PRIMARY KEY AUTOINCREMENT,
 	request_type_id    integer NOT NULL,
 	loop_id            integer NOT NULL,
 	timestamp          integer NOT NULL,

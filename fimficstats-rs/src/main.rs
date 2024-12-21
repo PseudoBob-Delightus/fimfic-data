@@ -1,9 +1,9 @@
-use self::structs::{Api, Stats};
+use self::structs::{Api, DriverSetting, GeckodriverSession, Stats};
 use chrono::{TimeZone, Utc};
 use pony::averages::SimpleMovingAverage;
 use pony::time::format_milliseconds;
 use pony::traits::OrderedVector;
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKIE};
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Client, Response};
 use rusqlite::{params, Connection};
 use scraper::{ElementRef, Html, Selector};
@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use structs::GeckodriverSession;
 use tokio::time::timeout;
 
 pub mod structs;
@@ -235,21 +234,46 @@ async fn setup_geckodriver() -> Result<(), Box<dyn Error>> {
 			"alwaysMatch": {
 				"browserName": "firefox",
 				"moz:firefoxOptions": {
-					"args": ["-headless"],
-					"prefs": {}
+					"args": ["-headless"]
 				}
 			}
 		}
 	});
-	let json = client
+	let session_id = client
 		.post("http://localhost:4444/session")
 		.json(&start_json)
 		.send()
 		.await?
 		.json::<GeckodriverSession>()
+		.await?
+		.value
+		.session_id;
+	let no_driver_json = json!({
+		"script": "Object.defineProperty(navigator, \"webdriver\", { get: () => false });",
+		"args": []
+	});
+	let url = format!("http://localhost:4444/session/{session_id}/execute/sync");
+	let no_driver = client
+		.post(url.clone())
+		.json(&no_driver_json)
+		.send()
+		.await?
+		.json::<DriverSetting>()
 		.await?;
-	println!("{:#?}", json);
-	println!("{}", json.value.session_id);
+	assert_eq!(None, no_driver.value);
+	let check_driver_json = json!({
+		"script": "return navigator.webdriver;",
+		"args": []
+	});
+	let driver_report = client
+		.post(url)
+		.json(&check_driver_json)
+		.send()
+		.await?
+		.json::<DriverSetting>()
+		.await?;
+	assert!(!driver_report.value.unwrap());
+	println!("{:?}", session_id);
 	Ok(())
 }
 

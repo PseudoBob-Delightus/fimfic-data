@@ -278,3 +278,8 @@ pub struct Timeouts {
 	pub page_load: u64,
 	pub script: u64,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DriverSetting {
+	pub value: Option<bool>,
+}

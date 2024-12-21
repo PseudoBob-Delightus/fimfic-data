@@ -7,10 +7,12 @@ use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKI
 use reqwest::{Client, Response};
 use rusqlite::{params, Connection};
 use scraper::{ElementRef, Html, Selector};
+use serde_json::json;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use structs::GeckodriverSession;
 use tokio::time::timeout;
 
 pub mod structs;
@@ -112,6 +114,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		interval_max: Duration::from_secs(120),
 		timeout: Duration::from_secs(10),
 	};
+
+	setup_geckodriver().await?;
 
 	// Simple weighted average times, used for estimating runtime.
 	let mut times = SimpleMovingAverage::<u32>::new(10_000);
@@ -220,8 +224,33 @@ fn setup_api_headers(token: &str) -> Result<HeaderMap, Box<dyn Error>> {
 
 fn setup_site_headers() -> Result<HeaderMap, Box<dyn Error>> {
 	let mut headers = HeaderMap::new();
-	headers.insert(COOKIE, HeaderValue::from_static("view_mature=true"));
+	headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 	Ok(headers)
+}
+
+async fn setup_geckodriver() -> Result<(), Box<dyn Error>> {
+	let client = reqwest::Client::new();
+	let start_json = json!({
+		"capabilities": {
+			"alwaysMatch": {
+				"browserName": "firefox",
+				"moz:firefoxOptions": {
+					"args": ["-headless"],
+					"prefs": {}
+				}
+			}
+		}
+	});
+	let json = client
+		.post("http://localhost:4444/session")
+		.json(&start_json)
+		.send()
+		.await?
+		.json::<GeckodriverSession>()
+		.await?;
+	println!("{:#?}", json);
+	println!("{}", json.value.session_id);
+	Ok(())
 }
 
 async fn handle_request(request: FimficRequest, url: &str) -> Result<Response, Box<dyn Error>> {

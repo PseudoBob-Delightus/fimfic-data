@@ -211,3 +211,70 @@ pub enum ChapterDate {
 	Text(String),
 	Number(u32),
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GeckodriverSession {
+	pub value: SessionValue,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SessionValue {
+	#[serde(rename = "sessionId")]
+	pub session_id: String,
+	pub capabilities: Capabilities,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Capabilities {
+	#[serde(rename = "acceptInsecureCerts")]
+	pub accept_insecure_certs: bool,
+	#[serde(rename = "browserName")]
+	pub browser_name: String,
+	#[serde(rename = "browserVersion")]
+	pub browser_version: String,
+	#[serde(rename = "moz:accessibilityChecks")]
+	pub moz_accessibility_checks: bool,
+	#[serde(rename = "moz:buildID")]
+	pub moz_build_id: String,
+	#[serde(rename = "moz:geckodriverVersion")]
+	pub moz_geckodriver_version: String,
+	#[serde(rename = "moz:headless")]
+	pub moz_headless: bool,
+	#[serde(rename = "moz:platformVersion")]
+	pub moz_platform_version: String,
+	#[serde(rename = "moz:processID")]
+	pub moz_process_id: u32,
+	#[serde(rename = "moz:profile")]
+	pub moz_profile: String,
+	#[serde(rename = "moz:shutdownTimeout")]
+	pub moz_shutdown_timeout: u64,
+	#[serde(rename = "moz:webdriverClick")]
+	pub moz_webdriver_click: bool,
+	#[serde(rename = "moz:windowless")]
+	pub moz_windowless: bool,
+	#[serde(rename = "pageLoadStrategy")]
+	pub page_load_strategy: String,
+	#[serde(rename = "platformName")]
+	pub platform_name: String,
+	pub proxy: Proxy,
+	#[serde(rename = "setWindowRect")]
+	pub set_window_rect: bool,
+	#[serde(rename = "strictFileInteractability")]
+	pub strict_file_interactability: bool,
+	pub timeouts: Timeouts,
+	#[serde(rename = "unhandledPromptBehavior")]
+	pub unhandled_prompt_behavior: String,
+	#[serde(rename = "userAgent")]
+	pub user_agent: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Proxy {}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Timeouts {
+	pub implicit: u64,
+	#[serde(rename = "pageLoad")]
+	pub page_load: u64,
+	pub script: u64,
+}

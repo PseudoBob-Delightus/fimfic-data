@@ -394,7 +394,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fimfic-stats"
+name = "fimfic-data"
 version = "0.1.0"
 dependencies = [
  "chrono",

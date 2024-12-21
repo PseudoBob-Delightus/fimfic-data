@@ -1,7 +1,7 @@
 [package]
-name = "fimfic-stats"
+name = "fimfic-data"
 version = "0.1.0"
-description = "CLI tools for scraping statistics from FIMFiction."
+description = "CLI tools for scraping statistics from FIMFiction API."
 repository = "https://github.com/PseudoBob-Delightus/fimfic-data"
 authors = ["Silk Rose", "Meadowsys"]
 edition = "2021"

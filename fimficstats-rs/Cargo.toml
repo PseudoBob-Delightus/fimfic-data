@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "CLI tools for scraping statistics from FIMFiction."
 repository = "https://github.com/PseudoBob-Delightus/fimfic-data"
 authors = ["Silk Rose", "Meadowsys"]
-edition = "2021"
+edition = "2024"
 license = "MIT"
 publish = false
 

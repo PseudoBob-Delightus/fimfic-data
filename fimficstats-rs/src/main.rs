@@ -1,56 +1,12 @@
-use self::structs::{Api, DriverSetting, GeckodriverSession, Stats};
-use chrono::{TimeZone, Utc};
+use chrono::Utc;
 use pony::averages::SimpleMovingAverage;
 use pony::time::format_milliseconds;
-use pony::traits::OrderedVector;
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
-use reqwest::{Client, Response};
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 use scraper::{ElementRef, Html, Selector};
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::env;
 use std::error::Error;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::time::timeout;
-
-pub mod structs;
-
-#[derive(Debug, Clone)]
-struct FimficRequest {
-	client: Client,
-	headers: HeaderMap,
-	interval: Duration,
-	interval_step: Duration,
-	interval_max: Duration,
-	timeout: Duration,
-}
-
-#[derive(Debug, Clone)]
-struct StoryResponse {
-	api: Api,
-	stats: String,
-	story: String,
-}
-
-#[derive(Debug, Clone)]
-struct FragmentedData {
-	api: Api,
-	story: StoryPage,
-	stats: StatsPage,
-}
-
-#[derive(Debug, Clone)]
-struct StoryPage {
-	banned: bool,
-	offline_since: u128,
-	following: u32,
-	cover_source: String,
-	also_liked: Vec<u32>,
-	similar: Vec<u32>,
-	groups: u32,
-	page_time: String,
-}
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
 struct StatsPage {
@@ -73,6 +29,44 @@ struct StoryTag {
 	text: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Stats {
+	pub chapters: Vec<ChapterStats>,
+	pub stats: StatsStats,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ChapterStats {
+	pub date: String,
+	pub title: String,
+	pub views: String,
+	pub words: String,
+	pub words_text: String,
+	pub chapter_num: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct StatsStats {
+	pub data: Vec<StatsData>,
+	pub first_chapter_date: ChapterDate,
+	pub last_chapter_date: ChapterDate,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct StatsData {
+	pub views: Option<u32>,
+	pub likes: Option<u32>,
+	pub dislikes: Option<u32>,
+	pub date: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum ChapterDate {
+	Text(String),
+	Number(u32),
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	println!("Program started at: {}", Utc::now());
@@ -82,46 +76,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 	let mut db = setup_database()?;
 
-	// Set the max number of consecutive deleted stories before stopping the script.
-	let max_endpoint = 512;
-	let mut current_endpoint = 0;
-
-	// URL setup.
-	let fimfic = "https://www.fimfiction.net";
-	let latest_domain = format!("{fimfic}/stories?view_mode=2&sort=latest");
-	let api_domain = format!("{fimfic}/api/v2/stories");
-	let stats_domain = format!("{fimfic}/story/stats");
-	let story_domain = format!("{fimfic}/story");
-
-	// API Bearer token is required to scrape the data.
-	let token = &env::args().collect::<Vec<_>>()[1];
-
-	// API and site request structs, client, headers, and time intervals.
-	let api = FimficRequest {
-		client: Client::new(),
-		headers: setup_api_headers(token)?,
-		interval: Duration::from_millis(500),
-		interval_step: Duration::from_secs(2),
-		interval_max: Duration::from_secs(120),
-		timeout: Duration::from_secs(10),
-	};
-	let site = FimficRequest {
-		client: Client::new(),
-		headers: setup_site_headers()?,
-		interval: Duration::from_millis(500),
-		interval_step: Duration::from_secs(2),
-		interval_max: Duration::from_secs(120),
-		timeout: Duration::from_secs(10),
-	};
-
-	setup_geckodriver().await?;
-
 	// Simple weighted average times, used for estimating runtime.
 	let mut times = SimpleMovingAverage::<u32>::new(10_000);
-
-	// Get the latest ID for the time estimate.
-	let ending_id = get_end_id(site.clone(), &latest_domain).await?;
-	println!("{ending_id:?}");
 
 	let start = 1;
 	let end = start + 1_000;
@@ -129,11 +85,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	// Loop over IDs to scrape data.
 	for id in start..=end {
 		let start_time = unix_time()?;
-
-		// End the script of we reach the max consecutive deleted stories.
-		if current_endpoint > max_endpoint {
-			break;
-		}
 
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();
@@ -143,65 +94,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			);
 			println!(
 				"{id} -- test time: {}",
-				format_milliseconds((average * (ending_id.unwrap() + 512 - id)) as u128, None)?
+				format_milliseconds((average * (end + 512 - id)) as u128, None)?
 			);
 		}
 
-		let api_url = format!("{api_domain}/{id}");
-		let api_response = handle_request(api.clone(), &api_url).await?;
-
-		// Checks to see if the story is deleted or unpublished.
-		if api_response.status().is_client_error() {
-			db.execute(
-				include_str!("../queries/insert/story-index.sql"),
-				params![
-					id,
-					"unknown",
-					version,
-					start_time as u64,
-					"NULL",
-					"NULL",
-					"NULL"
-				],
-			)?;
-			times.insert((unix_time()? - start_time) as u32);
-			current_endpoint += 1;
-			continue;
-		}
-
-		current_endpoint = 0;
-
-		let stats_url = format!("{stats_domain}/{id}");
-		let stats_response = handle_request(site.clone(), &stats_url).await?;
-
-		let story_url = format!("{story_domain}/{id}");
-		let story_response = handle_request(site.clone(), &story_url).await?;
-
-		let response = StoryResponse {
-			api: api_response.json::<Api>().await?,
-			stats: stats_response.text().await?,
-			story: story_response.text().await?,
-		};
-
-		let parse_start = unix_time()?;
-		println!("Published story: {id}");
-		let data = parse_response(response).await;
-		let parse_end = unix_time()?;
-
-		let insert_start = unix_time()?;
-		insert_data(&mut db, data, version, start_time as u64)?;
-
 		let end_time = unix_time()?;
 		times.insert((end_time - start_time) as u32);
-
-		println!(
-			"Time to parse: {}",
-			format_milliseconds(parse_end - parse_start, None)?
-		);
-		println!(
-			"Time to insert: {}",
-			format_milliseconds(end_time - insert_start, None)?
-		)
 	}
 
 	let program_end = unix_time()?;
@@ -211,193 +109,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
-fn setup_api_headers(token: &str) -> Result<HeaderMap, Box<dyn Error>> {
-	let mut headers = HeaderMap::new();
-	headers.insert(
-		AUTHORIZATION,
-		HeaderValue::from_str(&format!("Bearer {}", token))?,
-	);
-	headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-	Ok(headers)
-}
-
-fn setup_site_headers() -> Result<HeaderMap, Box<dyn Error>> {
-	let mut headers = HeaderMap::new();
-	headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-	Ok(headers)
-}
-
-async fn setup_geckodriver() -> Result<(), Box<dyn Error>> {
-	let client = reqwest::Client::new();
-	let start_json = json!({
-		"capabilities": {
-			"alwaysMatch": {
-				"browserName": "firefox",
-				"moz:firefoxOptions": {
-					"args": ["-headless"]
-				}
-			}
-		}
-	});
-	let session_id = client
-		.post("http://localhost:4444/session")
-		.json(&start_json)
-		.send()
-		.await?
-		.json::<GeckodriverSession>()
-		.await?
-		.value
-		.session_id;
-	let no_driver_json = json!({
-		"script": "Object.defineProperty(navigator, \"webdriver\", { get: () => false });",
-		"args": []
-	});
-	let url = format!("http://localhost:4444/session/{session_id}/execute/sync");
-	let no_driver = client
-		.post(url.clone())
-		.json(&no_driver_json)
-		.send()
-		.await?
-		.json::<DriverSetting>()
-		.await?;
-	assert_eq!(None, no_driver.value);
-	let check_driver_json = json!({
-		"script": "return navigator.webdriver;",
-		"args": []
-	});
-	let driver_report = client
-		.post(url)
-		.json(&check_driver_json)
-		.send()
-		.await?
-		.json::<DriverSetting>()
-		.await?;
-	assert!(!driver_report.value.unwrap());
-	println!("{:?}", session_id);
-	Ok(())
-}
-
-async fn handle_request(request: FimficRequest, url: &str) -> Result<Response, Box<dyn Error>> {
-	let mut interval = request.interval;
-	loop {
-		let start_time = unix_time()?;
-		let res = timeout(
-			request.timeout,
-			request
-				.client
-				.get(url)
-				.headers(request.headers.clone())
-				.send(),
-		)
-		.await;
-		match res {
-			Ok(Ok(response)) => {
-				sleep(start_time, request.interval).await?;
-				return Ok(response);
-			}
-			Ok(Err(e)) => {
-				println!("Request failed: {e}");
-			}
-			Err(e) => {
-				println!("Request timed out: {e}");
-			}
-		}
-		sleep(start_time, interval).await?;
-		interval = if interval < request.interval_max {
-			interval + request.interval_step
-		} else {
-			request.interval_max
-		};
-	}
-}
-
-async fn sleep(start_time: u128, interval: Duration) -> Result<(), Box<dyn Error>> {
-	let current_time = unix_time()?;
-	let elapsed_time = Duration::from_millis((current_time - start_time).try_into()?);
-	if elapsed_time > interval {
-		return Ok(());
-	};
-	tokio::time::sleep(interval - elapsed_time).await;
-	Ok(())
-}
-
 fn unix_time() -> Result<u128, Box<dyn Error>> {
 	Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis())
-}
-
-async fn get_end_id(request: FimficRequest, url: &str) -> Result<Option<u32>, Box<dyn Error>> {
-	let response = handle_request(request, url).await?;
-	let html = Html::parse_document(&response.text().await?);
-	let selector = Selector::parse("[data-story-id]")?;
-	let mut ids = Vec::with_capacity(60);
-	for element in html.select(&selector) {
-		if let Some(story_id) = element.value().attr("data-story-id") {
-			ids.push(story_id.parse::<u32>()?)
-		}
-	}
-	Ok(ids.sort_vec().last().cloned())
-}
-
-async fn parse_response(response: StoryResponse) -> FragmentedData {
-	FragmentedData {
-		api: response.api,
-		story: parse_story_page(response.story),
-		stats: parse_stats_page(response.stats),
-	}
-}
-
-fn parse_story_page(html: String) -> StoryPage {
-	let html = Html::parse_document(&html);
-
-	let banned = get_attribute_if(&html, ".user-page-header .info-container a", Some("style"))
-		.map_or(false, |style| style == "text-decoration:line-through");
-
-	let offline_since = get_attribute_if(&html, ".mini-info-box [data-time]", Some("title"))
-		.map_or(unix_time().unwrap() / 1000, |time| parse_time(&time));
-
-	let following = get_attribute_if(&html, ".tabs .tab-following .number", None)
-		.map_or(0, |following| {
-			following.replace(',', "").parse::<u32>().unwrap()
-		});
-
-	let cover_source =
-		get_attribute_if(&html, "a.source", Some("href")).unwrap_or("NULL".to_string());
-
-	let also_liked = get_attributes_from(
-		&html,
-		"[data-tab='also-liked'] [data-story-id]",
-		Some("data-story-id"),
-		8,
-	)
-	.iter()
-	.map(|id| id.parse::<u32>().unwrap())
-	.collect::<Vec<_>>();
-
-	let similar = get_attributes_from(
-		&html,
-		"[data-tab='similar'] [data-story-id]",
-		Some("data-story-id"),
-		8,
-	)
-	.iter()
-	.map(|id| id.parse::<u32>().unwrap())
-	.collect::<Vec<_>>();
-
-	let groups = get_attribute_if(&html, ".header-groups .count", None)
-		.map_or(0, |groups| groups.replace(',', "").parse::<u32>().unwrap());
-
-	let page_time = get_page_time(&html);
-
-	StoryPage {
-		banned,
-		offline_since,
-		following,
-		cover_source,
-		also_liked,
-		similar,
-		groups,
-		page_time,
-	}
 }
 
 fn get_attribute_if(html: &Html, condition: &str, attribute: Option<&str>) -> Option<String> {
@@ -428,61 +141,6 @@ fn get_attributes_from(
 		}
 	}
 	attributes
-}
-
-fn parse_time(time: &str) -> u128 {
-	let parts = time.split_whitespace().collect::<Vec<_>>();
-	let year = parts[4].parse::<i32>().unwrap();
-	let month = match parts[3] {
-		"January" => 1,
-		"February" => 2,
-		"March" => 3,
-		"April" => 4,
-		"May" => 5,
-		"June" => 6,
-		"July" => 7,
-		"August" => 8,
-		"September" => 9,
-		"October" => 10,
-		"November" => 11,
-		"December" => 12,
-		_ => unreachable!(),
-	};
-	let day = parts[1]
-		.chars()
-		.filter(|c| c.is_ascii_digit())
-		.collect::<String>()
-		.parse::<u32>()
-		.unwrap();
-	let hour = parts[5]
-		.split(':')
-		.next()
-		.unwrap()
-		.trim_start_matches('@')
-		.parse::<u32>()
-		.unwrap();
-	let hour = match parts[5] {
-		part if part.ends_with("am") && hour == 12 => 0,
-		part if part.ends_with("am") => hour,
-		part if part.ends_with("pm") && hour != 12 => hour + 12,
-		part if part.ends_with("pm") => hour,
-		_ => unreachable!(),
-	};
-	let minute = parts[5]
-		.split(':')
-		.last()
-		.unwrap()
-		.chars()
-		.filter(|c| c.is_ascii_digit())
-		.collect::<String>()
-		.parse::<u32>()
-		.unwrap();
-
-	Utc::with_ymd_and_hms(&Utc, year, month, day, hour, minute, 0)
-		.unwrap()
-		.timestamp()
-		.try_into()
-		.unwrap()
 }
 
 fn parse_stats_page(html: String) -> StatsPage {
@@ -605,26 +263,4 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	tx.execute(include_str!("../queries/create/similar.sql"), [])?;
 	tx.commit()?;
 	Ok(db)
-}
-
-fn insert_data(
-	db: &mut Connection, data: FragmentedData, version: f32, timestamp: u64,
-) -> Result<(), Box<dyn Error>> {
-	let api_time = data.api.debug.duration.split(' ').collect::<Vec<_>>()[0].to_string();
-	let tx = db.transaction()?;
-	tx.execute(
-		include_str!("../queries/insert/story-index.sql"),
-		params![
-			data.api.data.id,
-			"published",
-			version,
-			timestamp,
-			api_time,
-			data.story.page_time,
-			data.stats.page_time
-		],
-	)?;
-	tx.execute(include_str!("../queries/insert/author.sql"), [])?;
-	tx.commit()?;
-	Ok(())
 }

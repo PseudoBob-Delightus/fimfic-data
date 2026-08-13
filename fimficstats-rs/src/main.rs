@@ -6,6 +6,9 @@ use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
@@ -73,6 +76,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let program_start = unix_time()?;
 
 	let version = 1.0;
+
+	let mut story_map = HashMap::new();
+
+	let file = File::open("/home/velvetremedy/fimfic/fimfiction-stats/manifest.tsv")?;
+	let reader = BufReader::new(file);
+	for line in reader.lines().skip(1) {
+		let line = line?;
+		let parts = line.split('\t').collect::<Vec<_>>();
+		let url = parts[1];
+		let timestamp = parts[2];
+		let http_status = parts[3];
+		let status = http_status.parse::<u32>()?;
+		if status != 200 {
+			continue;
+		}
+		if !url.contains("fimfiction") {
+			continue;
+		}
+		let timestamp = timestamp.parse::<u32>()?;
+		let story_id = url.split('/').next_back().unwrap().parse::<u32>()?;
+		story_map.insert(story_id, timestamp);
+	}
 
 	let mut db = setup_database()?;
 

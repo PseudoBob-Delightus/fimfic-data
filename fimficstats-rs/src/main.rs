@@ -184,6 +184,9 @@ fn parse_stats_page(html: String) -> StatsPage {
 	let year = parts[3];
 	let published = format!("{year}-{month}-{day}");
 
+	let short_desc = get_attributes_from(&html, ".story-page-header .desktop p", None, 1);
+	let short_desc = short_desc.first().unwrap().to_owned();
+
 	let tags = get_story_tags(&html);
 
 	let stats = get_attribute_if(&html, ".layout-two-columns.story-stats", Some("data-data"));

@@ -104,28 +104,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	// Simple weighted average times, used for estimating runtime.
 	let mut times = SimpleMovingAverage::<u32>::new(10_000);
 
-	let start = 1;
-	let end = start + 1_000;
+	let total = story_map.len();
 
 	// Loop over IDs to scrape data.
-	for id in start..=end {
+	for (i, (id, timestamp)) in story_map.iter().enumerate() {
 		let start_time = unix_time()?;
 
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();
 			println!(
 				"{id} -- real time: {}",
-				format_milliseconds((average * (end - id)) as u128, None)?
-			);
-			println!(
-				"{id} -- test time: {}",
-				format_milliseconds((average * (end + 512 - id)) as u128, None)?
+				format_milliseconds((average * (total - i) as u32) as u128, None)?
 			);
 		}
 
 		let end_time = unix_time()?;
 		times.insert((end_time - start_time) as u32);
 	}
+
+	println!("Total stories: {total}");
 
 	let program_end = unix_time()?;
 	let time = format_milliseconds(program_end - program_start, None)?;

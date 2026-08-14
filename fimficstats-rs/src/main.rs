@@ -175,6 +175,15 @@ fn get_attributes_from(
 fn parse_stats_page(html: String) -> StatsPage {
 	let html = Html::parse_document(&html);
 
+	let published =
+		get_attributes_from_parent(&html, ".story-page-header .mini-info-box li > b", None, 1);
+
+	let parts: Vec<_> = published[0].split_whitespace().collect();
+	let day = parts[1].trim_end_matches(|c: char| !c.is_ascii_digit());
+	let month = parse_month(parts[2]);
+	let year = parts[3];
+	let published = format!("{year}-{month}-{day}");
+
 	let tags = get_story_tags(&html);
 
 	let stats = get_attribute_if(&html, ".layout-two-columns.story-stats", Some("data-data"));
@@ -274,6 +283,24 @@ fn get_story_tags(html: &Html) -> Vec<StoryTag> {
 		tags.push(tag);
 	}
 	tags
+}
+
+fn parse_month(month: &str) -> u128 {
+	match month {
+		"Jan" => 1,
+		"Feb" => 2,
+		"Mar" => 3,
+		"Apr" => 4,
+		"May" => 5,
+		"Jun" => 6,
+		"Jul" => 7,
+		"Aug" => 8,
+		"Sep" => 9,
+		"Oct" => 10,
+		"Nov" => 11,
+		"Dec" => 12,
+		_ => unreachable!(),
+	}
 }
 
 fn setup_database() -> Result<Connection, Box<dyn Error>> {

@@ -21,7 +21,10 @@ struct StatsPage {
 	bookshelves: u32,
 	tracking: u32,
 	referrals: HashMap<String, u32>,
-	page_time: String,
+	page_time: f64,
+	users_online: u32,
+	hits_today: u32,
+	hits_yesterday: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -213,7 +216,11 @@ fn parse_stats_page(html: String) -> StatsPage {
 		})
 		.collect();
 
-	let page_time = get_page_time(&html);
+	let page_stats = get_attributes_from(&html, ".footer .block .highlight", None, 12);
+	let page_time = page_stats[0].split(' ').next().unwrap().parse().unwrap();
+	let users_online = page_stats[2].clone().replace(',', "").parse().unwrap();
+	let hits_today = page_stats[3].clone().replace(',', "").parse().unwrap();
+	let hits_yesterday = page_stats[4].clone().replace(',', "").parse().unwrap();
 
 	StatsPage {
 		tags,
@@ -224,6 +231,9 @@ fn parse_stats_page(html: String) -> StatsPage {
 		tracking,
 		referrals,
 		page_time,
+		users_online,
+		hits_today,
+		hits_yesterday,
 	}
 }
 
@@ -257,19 +267,6 @@ fn get_right_stat(text: &str) -> u32 {
 		.collect::<String>()
 		.parse::<u32>()
 		.unwrap()
-}
-
-fn get_page_time(html: &Html) -> String {
-	let page_time = get_attributes_from(html, ".footer .block .highlight", None, 12);
-	let page_time = page_time.first().and_then(|s| {
-		let parts: Vec<_> = s.split(' ').collect();
-		if parts.len() == 2 && parts[1] == "seconds" {
-			Some(parts[0])
-		} else {
-			None
-		}
-	});
-	page_time.unwrap().to_string()
 }
 
 fn get_story_tags(html: &Html) -> Vec<StoryTag> {

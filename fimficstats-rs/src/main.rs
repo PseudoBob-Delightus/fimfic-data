@@ -10,6 +10,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::fs;
 
 #[derive(Debug, Clone)]
 struct StatsPage {
@@ -110,11 +111,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	for (i, (id, timestamp)) in story_map.iter().enumerate() {
 		let start_time = unix_time()?;
 
+		let path = format!(
+			"/home/velvetremedy/fimfic/fimfiction-stats/www.fimfiction.net/story/stats/{id}.html"
+		);
+		let html = fs::read_to_string(path).await?;
+		let stats = parse_stats_page(html);
+
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();
 			println!(
-				"{id} -- real time: {}",
-				format_milliseconds((average * (total - i) as u32) as u128, None)?
+				"Iteration: {i:6}, ID: {id:6}, estimated time remaining: {}",
+				format_milliseconds((average * (total - i) as u32) as u128, Some(3))?
 			);
 		}
 
@@ -214,15 +221,15 @@ fn get_attributes_from_parent(
 	let mut attributes = Vec::with_capacity(capacity);
 	let selector = Selector::parse(from).unwrap();
 	for child in html.select(&selector) {
-		if let Some(parent_node) = child.parent() {
-			if let Some(parent_element) = ElementRef::wrap(parent_node) {
-				if let Some(attribute) = attribute {
-					if let Some(text) = parent_element.value().attr(attribute) {
-						attributes.push(text.into())
-					}
-				} else {
-					attributes.push(parent_element.text().collect())
+		if let Some(parent_node) = child.parent()
+			&& let Some(parent_element) = ElementRef::wrap(parent_node)
+		{
+			if let Some(attribute) = attribute {
+				if let Some(text) = parent_element.value().attr(attribute) {
+					attributes.push(text.into())
 				}
+			} else {
+				attributes.push(parent_element.text().collect())
 			}
 		}
 	}
@@ -231,7 +238,7 @@ fn get_attributes_from_parent(
 
 fn get_right_stat(text: &str) -> u32 {
 	text.split(':')
-		.last()
+		.next_back()
 		.unwrap()
 		.chars()
 		.filter(|c| c.is_ascii_digit())

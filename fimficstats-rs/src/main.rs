@@ -13,27 +13,36 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
 #[derive(Debug, Clone)]
-struct StatsPage {
-	tags: Vec<StoryTag>,
-	stats: Stats,
-	ranking: u32,
-	word_ranking: u32,
-	bookshelves: u32,
-	tracking: u32,
-	referrals: HashMap<String, u32>,
-	page_time: f64,
-	users_online: u32,
-	hits_today: u32,
-	hits_yesterday: u32,
+pub struct StatsPage {
+	pub tags: Vec<StoryTag>,
+	pub stats: Stats,
+	pub short_desc: String,
+	pub published: Option<String>,
+	pub author_image_stub: String,
+	pub author_name: String,
+	pub author_id: u32,
+	pub author_bio: Option<String>,
+	pub author_stories: u32,
+	pub author_blogs: u32,
+	pub author_followers: u32,
+	pub ranking: u32,
+	pub word_ranking: u32,
+	pub bookshelves: u32,
+	pub tracking: u32,
+	pub referrals: HashMap<String, u32>,
+	pub page_time: f64,
+	pub users_online: u32,
+	pub hits_today: u32,
+	pub hits_yesterday: u32,
 }
 
 #[derive(Debug, Clone)]
-struct StoryTag {
-	id: u32,
-	title: String,
-	group: String,
-	href: String,
-	text: String,
+pub struct StoryTag {
+	pub id: u32,
+	pub title: String,
+	pub group: String,
+	pub href: String,
+	pub text: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -181,11 +190,15 @@ fn parse_stats_page(html: String) -> StatsPage {
 	let published =
 		get_attributes_from_parent(&html, ".story-page-header .mini-info-box li > b", None, 1);
 
-	let parts: Vec<_> = published[0].split_whitespace().collect();
-	let day = parts[1].trim_end_matches(|c: char| !c.is_ascii_digit());
-	let month = parse_month(parts[2]);
-	let year = parts[3];
-	let published = format!("{year}-{month}-{day}");
+	let published = if !published.is_empty() {
+		let parts: Vec<_> = published[0].split_whitespace().collect();
+		let day = parts[1].trim_end_matches(|c: char| !c.is_ascii_digit());
+		let month = parse_month(parts[2]);
+		let year = parts[3];
+		Some(format!("{year}-{month}-{day}"))
+	} else {
+		None
+	};
 
 	let short_desc = get_attributes_from(&html, ".story-page-header .desktop p", None, 1);
 	let short_desc = short_desc.first().unwrap().to_owned();
@@ -194,6 +207,30 @@ fn parse_stats_page(html: String) -> StatsPage {
 
 	let stats = get_attribute_if(&html, ".layout-two-columns.story-stats", Some("data-data"));
 	let stats = serde_json::from_str::<Stats>(&stats.unwrap()).unwrap();
+
+	let author_image_stub = get_attributes_from(&html, ".user-card img", Some("data-src"), 1);
+	let author_image_stub = author_image_stub[0]
+		.split('/')
+		.next_back()
+		.unwrap()
+		.to_string();
+
+	let author_name = get_attributes_from(&html, ".story-page-header .author a", None, 1);
+	let author_name = author_name[0].clone();
+	let author_id = get_attributes_from(&html, ".story-page-header .author a", Some("href"), 1);
+	let author_id = author_id[0].split('/').nth(2).unwrap().parse().unwrap();
+
+	let author_bio = get_attributes_from(&html, ".user-card .info p", None, 1);
+	let author_bio = if !author_bio.is_empty() {
+		Some(author_bio[0].clone())
+	} else {
+		None
+	};
+
+	let author_stats = get_attributes_from(&html, ".user-links .number", None, 3);
+	let author_stories = author_stats[0].clone().replace(',', "").parse().unwrap();
+	let author_blogs = author_stats[1].clone().replace(',', "").parse().unwrap();
+	let author_followers = author_stats[2].clone().replace(',', "").parse().unwrap();
 
 	let sidebar_stats =
 		get_attributes_from_parent(&html, ".content_box .article ul li > b", None, 6);
@@ -225,6 +262,15 @@ fn parse_stats_page(html: String) -> StatsPage {
 	StatsPage {
 		tags,
 		stats,
+		short_desc,
+		published,
+		author_image_stub,
+		author_name,
+		author_id,
+		author_bio,
+		author_stories,
+		author_blogs,
+		author_followers,
 		ranking,
 		word_ranking,
 		bookshelves,

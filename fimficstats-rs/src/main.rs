@@ -14,6 +14,7 @@ use tokio::fs;
 
 #[derive(Debug, Clone)]
 pub struct StatsPage {
+	pub story_title: String,
 	pub tags: Vec<StoryTag>,
 	pub stats: Stats,
 	pub short_desc: String,
@@ -187,6 +188,9 @@ fn get_attributes_from(
 fn parse_stats_page(html: String) -> StatsPage {
 	let html = Html::parse_document(&html);
 
+	let story_title = get_attributes_from(&html, ".title a", None, 1);
+	let story_title = story_title[0].clone();
+
 	let published =
 		get_attributes_from_parent(&html, ".story-page-header .mini-info-box li > b", None, 1);
 
@@ -260,6 +264,7 @@ fn parse_stats_page(html: String) -> StatsPage {
 	let hits_yesterday = page_stats[4].clone().replace(',', "").parse().unwrap();
 
 	StatsPage {
+		story_title,
 		tags,
 		stats,
 		short_desc,

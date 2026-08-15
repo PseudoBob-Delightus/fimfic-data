@@ -14,27 +14,20 @@ use tokio::fs;
 
 #[derive(Debug, Clone)]
 pub struct StatsPage {
-	pub story_title: String,
+	pub story_data: StoryData,
+	pub author_data: AuthorData,
+	pub sidebar_stats: SidebarStats,
+	pub page_data: PageData,
+}
+
+#[derive(Debug, Clone)]
+pub struct StoryData {
+	pub id: u32,
+	pub title: String,
 	pub tags: Vec<StoryTag>,
-	pub stats: Stats,
 	pub short_desc: String,
 	pub published: Option<String>,
-	pub author_image_stub: String,
-	pub author_name: String,
-	pub author_id: u32,
-	pub author_bio: Option<String>,
-	pub author_stories: u32,
-	pub author_blogs: u32,
-	pub author_followers: u32,
-	pub ranking: u32,
-	pub word_ranking: u32,
-	pub bookshelves: u32,
-	pub tracking: u32,
-	pub referrals: HashMap<String, u32>,
-	pub page_time: f64,
-	pub users_online: u32,
-	pub hits_today: u32,
-	pub hits_yesterday: u32,
+	pub stats: Stats,
 }
 
 #[derive(Debug, Clone)]
@@ -84,12 +77,41 @@ pub enum ChapterDate {
 	Number(u32),
 }
 
+#[derive(Debug, Clone)]
+pub struct AuthorData {
+	pub id: u32,
+	pub name: String,
+	pub image_stub: String,
+	pub bio: Option<String>,
+	pub stories: u32,
+	pub blogs: u32,
+	pub followers: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct SidebarStats {
+	pub views: u32,
+	pub comments: u32,
+	pub ranking: u32,
+	pub word_ranking: u32,
+	pub bookshelves: u32,
+	pub tracking: u32,
+	pub referrals: HashMap<String, u32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PageData {
+	pub timestamp: u32,
+	pub page_time: f64,
+	pub users_online: u32,
+	pub hits_today: u32,
+	pub hits_yesterday: u32,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	println!("Program started at: {}", Utc::now());
 	let program_start = unix_time()?;
-
-	let version = 1.0;
 
 	let mut story_map = HashMap::new();
 
@@ -128,7 +150,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			"/home/velvetremedy/fimfic/fimfiction-stats/www.fimfiction.net/story/stats/{id}.html"
 		);
 		let html = fs::read_to_string(path).await?;
-		let stats = parse_stats_page(html);
+		let stats = parse_stats_page(html, *id, *timestamp);
 
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();
@@ -155,6 +177,110 @@ fn unix_time() -> Result<u128, Box<dyn Error>> {
 	Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis())
 }
 
+fn parse_stats_page(
+	html: String, story_id: u32, timestamp: u32,
+) -> Result<StatsPage, Box<dyn Error>> {
+	let html = Html::parse_document(&html);
+
+	let story_title = get_attributes_from(&html, ".title a", None);
+	let story_title = story_title[0].clone();
+
+	let short_desc = get_attributes_from(&html, ".story-page-header .desktop p", None);
+	let short_desc = short_desc.first().unwrap().to_owned();
+
+	let published =
+		get_attributes_from_parent(&html, ".story-page-header .mini-info-box li > b", None, 1);
+	let published = if !published.is_empty() {
+		let parts: Vec<_> = published[0].split_whitespace().collect();
+		let day = parts[1].trim_end_matches(|c: char| !c.is_ascii_digit());
+		let month = parse_month(parts[2]);
+		let year = parts[3];
+		Some(format!("{year}-{month}-{day}"))
+	} else {
+		None
+	};
+
+	let stats = get_attribute_if(&html, ".layout-two-columns.story-stats", Some("data-data"));
+	let stats = serde_json::from_str::<Stats>(&stats.unwrap()).unwrap();
+
+	let story_data = StoryData {
+		id: story_id,
+		title: story_title,
+		tags: get_story_tags(&html),
+		short_desc,
+		published,
+		stats,
+	};
+
+	let author_id = get_attributes_from(&html, ".story-page-header .author a", Some("href"));
+	let author_id = author_id[0].split('/').nth(2).unwrap().parse().unwrap();
+	let author_name = get_attributes_from(&html, ".story-page-header .author a", None);
+	let author_name = author_name[0].clone();
+	let author_image_stub = get_attributes_from(&html, ".user-card img", Some("data-src"));
+	let author_image_stub = author_image_stub[0]
+		.split('/')
+		.next_back()
+		.unwrap()
+		.to_string();
+	let author_bio = get_attributes_from(&html, ".user-card .info p", None);
+	let author_bio = if !author_bio.is_empty() {
+		Some(author_bio[0].clone())
+	} else {
+		None
+	};
+
+	let author_stats = get_attributes_from(&html, ".user-links .number", None);
+
+	let author_data = AuthorData {
+		id: author_id,
+		name: author_name,
+		image_stub: author_image_stub,
+		bio: author_bio,
+		stories: author_stats[0].clone().replace(',', "").parse()?,
+		blogs: author_stats[1].clone().replace(',', "").parse()?,
+		followers: author_stats[2].clone().replace(',', "").parse()?,
+	};
+
+	let sidebar_stats =
+		get_attributes_from_parent(&html, ".content_box .article ul li > b", None, 6);
+	let referrals: HashMap<String, u32> = sidebar_stats
+		.iter()
+		.skip(6)
+		.map(|referral| {
+			let data = referral.split(": ").collect::<Vec<_>>();
+			let site = data.first().unwrap();
+			let count = get_right_stat(data.last().unwrap());
+			(site.to_string(), count)
+		})
+		.collect();
+
+	let sidebar_stats = SidebarStats {
+		views: sidebar_stats.first().map(|s| get_right_stat(s)).unwrap(),
+		comments: sidebar_stats.get(1).map(|s| get_right_stat(s)).unwrap(),
+		ranking: sidebar_stats.get(2).map(|s| get_right_stat(s)).unwrap(),
+		word_ranking: sidebar_stats.get(3).map(|s| get_right_stat(s)).unwrap(),
+		bookshelves: sidebar_stats.get(4).map(|s| get_right_stat(s)).unwrap(),
+		tracking: sidebar_stats.get(5).map(|s| get_right_stat(s)).unwrap(),
+		referrals,
+	};
+
+	let page_stats = get_attributes_from(&html, ".footer .block .highlight", None);
+	let page_data = PageData {
+		timestamp,
+		page_time: page_stats[0].split(' ').next().unwrap().parse()?,
+		users_online: page_stats[2].clone().replace(',', "").parse()?,
+		hits_today: page_stats[3].clone().replace(',', "").parse()?,
+		hits_yesterday: page_stats[4].clone().replace(',', "").parse()?,
+	};
+
+	Ok(StatsPage {
+		story_data,
+		author_data,
+		sidebar_stats,
+		page_data,
+	})
+}
+
 fn get_attribute_if(html: &Html, condition: &str, attribute: Option<&str>) -> Option<String> {
 	let selector = Selector::parse(condition).unwrap();
 	if let Some(element) = html.select(&selector).next() {
@@ -168,10 +294,8 @@ fn get_attribute_if(html: &Html, condition: &str, attribute: Option<&str>) -> Op
 	}
 }
 
-fn get_attributes_from(
-	html: &Html, from: &str, attribute: Option<&str>, capacity: usize,
-) -> Vec<String> {
-	let mut attributes = Vec::with_capacity(capacity);
+fn get_attributes_from(html: &Html, from: &str, attribute: Option<&str>) -> Vec<String> {
+	let mut attributes = Vec::new();
 	let selector = Selector::parse(from).unwrap();
 	for child in html.select(&selector) {
 		if let Some(attribute) = attribute {
@@ -183,109 +307,6 @@ fn get_attributes_from(
 		}
 	}
 	attributes
-}
-
-fn parse_stats_page(html: String) -> StatsPage {
-	let html = Html::parse_document(&html);
-
-	let story_title = get_attributes_from(&html, ".title a", None, 1);
-	let story_title = story_title[0].clone();
-
-	let published =
-		get_attributes_from_parent(&html, ".story-page-header .mini-info-box li > b", None, 1);
-
-	let published = if !published.is_empty() {
-		let parts: Vec<_> = published[0].split_whitespace().collect();
-		let day = parts[1].trim_end_matches(|c: char| !c.is_ascii_digit());
-		let month = parse_month(parts[2]);
-		let year = parts[3];
-		Some(format!("{year}-{month}-{day}"))
-	} else {
-		None
-	};
-
-	let short_desc = get_attributes_from(&html, ".story-page-header .desktop p", None, 1);
-	let short_desc = short_desc.first().unwrap().to_owned();
-
-	let tags = get_story_tags(&html);
-
-	let stats = get_attribute_if(&html, ".layout-two-columns.story-stats", Some("data-data"));
-	let stats = serde_json::from_str::<Stats>(&stats.unwrap()).unwrap();
-
-	let author_image_stub = get_attributes_from(&html, ".user-card img", Some("data-src"), 1);
-	let author_image_stub = author_image_stub[0]
-		.split('/')
-		.next_back()
-		.unwrap()
-		.to_string();
-
-	let author_name = get_attributes_from(&html, ".story-page-header .author a", None, 1);
-	let author_name = author_name[0].clone();
-	let author_id = get_attributes_from(&html, ".story-page-header .author a", Some("href"), 1);
-	let author_id = author_id[0].split('/').nth(2).unwrap().parse().unwrap();
-
-	let author_bio = get_attributes_from(&html, ".user-card .info p", None, 1);
-	let author_bio = if !author_bio.is_empty() {
-		Some(author_bio[0].clone())
-	} else {
-		None
-	};
-
-	let author_stats = get_attributes_from(&html, ".user-links .number", None, 3);
-	let author_stories = author_stats[0].clone().replace(',', "").parse().unwrap();
-	let author_blogs = author_stats[1].clone().replace(',', "").parse().unwrap();
-	let author_followers = author_stats[2].clone().replace(',', "").parse().unwrap();
-
-	let sidebar_stats =
-		get_attributes_from_parent(&html, ".content_box .article ul li > b", None, 6);
-	let ranking = sidebar_stats.get(2).map(|s| get_right_stat(s)).unwrap();
-
-	let word_ranking = sidebar_stats.get(3).map(|s| get_right_stat(s)).unwrap();
-
-	let bookshelves = sidebar_stats.get(4).map(|s| get_right_stat(s)).unwrap();
-
-	let tracking = sidebar_stats.get(5).map(|s| get_right_stat(s)).unwrap();
-
-	let referrals: HashMap<String, u32> = sidebar_stats
-		.iter()
-		.skip(6)
-		.map(|referral| {
-			let data = referral.split(": ").collect::<Vec<_>>();
-			let site = data.first().unwrap();
-			let count = get_right_stat(data.last().unwrap());
-			(site.to_string(), count)
-		})
-		.collect();
-
-	let page_stats = get_attributes_from(&html, ".footer .block .highlight", None, 12);
-	let page_time = page_stats[0].split(' ').next().unwrap().parse().unwrap();
-	let users_online = page_stats[2].clone().replace(',', "").parse().unwrap();
-	let hits_today = page_stats[3].clone().replace(',', "").parse().unwrap();
-	let hits_yesterday = page_stats[4].clone().replace(',', "").parse().unwrap();
-
-	StatsPage {
-		story_title,
-		tags,
-		stats,
-		short_desc,
-		published,
-		author_image_stub,
-		author_name,
-		author_id,
-		author_bio,
-		author_stories,
-		author_blogs,
-		author_followers,
-		ranking,
-		word_ranking,
-		bookshelves,
-		tracking,
-		referrals,
-		page_time,
-		users_online,
-		hits_today,
-		hits_yesterday,
-	}
 }
 
 fn get_attributes_from_parent(

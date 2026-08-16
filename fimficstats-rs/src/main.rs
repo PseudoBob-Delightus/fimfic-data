@@ -2,6 +2,7 @@ use chrono::Utc;
 use pony::averages::SimpleMovingAverage;
 use pony::time::format_milliseconds;
 use rusqlite::Connection;
+use rusqlite::OptionalExtension;
 use rusqlite::params;
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
@@ -215,6 +216,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			tx.execute(
 				include_str!("../queries/insert/stats.sql"),
 				(id, stat.views, stat.likes, stat.dislikes, stat.date),
+			)?;
+		}
+
+		for (ref site, count) in stats.sidebar_stats.referrals {
+			let site_id: Option<u32> = tx
+				.query_one(
+					include_str!("../queries/select/referral-site.sql"),
+					(site,),
+					|row| row.get(0),
+				)
+				.optional()?;
+			let site_id = if let Some(site_id) = site_id {
+				site_id
+			} else {
+				tx.query_one(
+					include_str!("../queries/insert/referral-site.sql"),
+					(site,),
+					|row| row.get(0),
+				)?
+			};
+			tx.execute(
+				include_str!("../queries/insert/referral.sql"),
+				(id, site_id, count),
 			)?;
 		}
 
@@ -454,17 +478,13 @@ fn parse_chapter_date(date: ChapterDate) -> Result<Option<u32>, Box<dyn Error>> 
 fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	let mut db = Connection::open("./fimfic-stats.db")?;
 	let tx = db.transaction()?;
-	tx.execute(include_str!("../queries/create/authors.sql"), [])?;
-	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
+	tx.execute(include_str!("../queries/create/stat-pages.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tag-links.sql"), [])?;
 	tx.execute(include_str!("../queries/create/chapters.sql"), [])?;
 	tx.execute(include_str!("../queries/create/stats.sql"), [])?;
 	tx.execute(include_str!("../queries/create/referral-sites.sql"), [])?;
 	tx.execute(include_str!("../queries/create/referrals.sql"), [])?;
-	tx.execute(include_str!("../queries/create/also-liked.sql"), [])?;
-	tx.execute(include_str!("../queries/create/similar.sql"), [])?;
-	tx.execute(include_str!("../queries/create/stat-pages.sql"), [])?;
 	tx.commit()?;
 	Ok(db)
 }

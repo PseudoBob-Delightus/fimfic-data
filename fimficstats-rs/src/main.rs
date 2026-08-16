@@ -187,6 +187,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			],
 		)?;
 
+		for tag in stats.story_data.tags {
+			db.execute(
+				include_str!("../queries/insert/tag.sql"),
+				(tag.id, tag.title, tag.group, tag.text, tag.href),
+			)?;
+			db.execute(include_str!("../queries/insert/tag-link.sql"), (id, tag.id))?;
+		}
+
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();
 			println!(

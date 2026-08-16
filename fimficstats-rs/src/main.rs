@@ -136,7 +136,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		story_map.insert(story_id, timestamp);
 	}
 
-	let db = setup_database()?;
+	let mut db = setup_database()?;
 
 	// Simple weighted average times, used for estimating runtime.
 	let mut times = SimpleMovingAverage::<u32>::new(10_000);
@@ -153,7 +153,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		let html = fs::read_to_string(path).await?;
 		let stats = parse_stats_page(html, *id, *timestamp)?;
 
-		db.execute(
+		let tx = db.transaction()?;
+
+		tx.execute(
 			include_str!("../queries/insert/stat-page.sql"),
 			params![
 				// story data
@@ -188,15 +190,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		)?;
 
 		for tag in stats.story_data.tags {
-			db.execute(
+			tx.execute(
 				include_str!("../queries/insert/tag.sql"),
 				(tag.id, tag.title, tag.group, tag.text, tag.href),
 			)?;
-			db.execute(include_str!("../queries/insert/tag-link.sql"), (id, tag.id))?;
+			tx.execute(include_str!("../queries/insert/tag-link.sql"), (id, tag.id))?;
 		}
 
 		for chapter in stats.story_data.stats.chapters {
-			db.execute(
+			tx.execute(
 				include_str!("../queries/insert/chapter.sql"),
 				(
 					id,
@@ -210,11 +212,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		}
 
 		for stat in stats.story_data.stats.stats.data {
-			db.execute(
+			tx.execute(
 				include_str!("../queries/insert/stats.sql"),
 				(id, stat.views, stat.likes, stat.dislikes, stat.date),
 			)?;
 		}
+
+		tx.commit()?;
 
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();

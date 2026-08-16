@@ -1,8 +1,4 @@
-INSERT INTO
-	Stats (story_id, date, views, likes, dislikes)
+INSERT OR IGNORE INTO
+	Stats (story_id, views, likes, dislikes, date)
 VALUES
-	(?1, ?2, ?3, ?4, ?5)
-ON CONFLICT(story_id, date) DO UPDATE SET
-	views = excluded.views,
-	likes = excluded.likes,
-	dislikes = excluded.dislikes;
+	(?1, ?2, ?3, ?4, ?5);

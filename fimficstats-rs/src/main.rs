@@ -248,7 +248,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			let percent = (i as f64 / total as f64) * 100.0;
 			let average = times.average().unwrap();
 			println!(
-				"Iteration: {i:6}, percentage: {percent:7.2}, ID: {id:6}, estimated time remaining: {}",
+				"Iteration: {i:6}, percentage: {percent:5.2}, ID: {id:6}, estimated time remaining: {}",
 				format_milliseconds((average * (total - i) as u32) as u128, Some(2))?
 			);
 		}

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS Referral_sites (
-	id   INTEGER NOT NULL PRIMARY KEY,
-	site TEXT    NOT NULL,
+	id   integer NOT NULL PRIMARY KEY,
+	site text    NOT NULL,
 
 	UNIQUE(site)
 );

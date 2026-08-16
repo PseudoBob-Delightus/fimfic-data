@@ -209,6 +209,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			)?;
 		}
 
+		for stat in stats.story_data.stats.stats.data {
+			db.execute(
+				include_str!("../queries/insert/stats.sql"),
+				(id, stat.views, stat.likes, stat.dislikes, stat.date),
+			)?;
+		}
+
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();
 			println!(

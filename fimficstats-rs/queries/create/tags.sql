@@ -4,4 +4,4 @@ CREATE TABLE IF NOT EXISTS Tags (
 	type  text    NOT NULL,
 	text  text    NOT NULL,
 	href  text    NOT NULL
-)
+);

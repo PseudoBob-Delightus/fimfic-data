@@ -195,6 +195,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			db.execute(include_str!("../queries/insert/tag-link.sql"), (id, tag.id))?;
 		}
 
+		for chapter in stats.story_data.stats.chapters {
+			db.execute(
+				include_str!("../queries/insert/chapter.sql"),
+				(
+					id,
+					chapter.chapter_num,
+					chapter.title,
+					chapter.views,
+					chapter.words,
+					chapter.date,
+				),
+			)?;
+		}
+
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();
 			println!(

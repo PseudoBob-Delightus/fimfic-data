@@ -1,13 +1,13 @@
 CREATE TABLE IF NOT EXISTS Chapters (
-	story_id      INTEGER NOT NULL,
-	chapter_num   INTEGER NOT NULL,
-	title         TEXT    NOT NULL,
-	date_modified INTEGER NOT NULL,
-	views         INTEGER NOT NULL,
-	words         INTEGER NOT NULL,
+	story_id       integer NOT NULL,
+	chapter_num    integer NOT NULL,
+	title          text    NOT NULL,
+	views          integer NOT NULL,
+	words          integer NOT NULL,
+	date_published integer NOT NULL,
 
 		CONSTRAINT chapter_story_id_fk FOREIGN KEY (story_id)
-			REFERENCES Stories (id),
+			REFERENCES Stat_pages (story_id),
 
 		CONSTRAINT chapters_pk PRIMARY KEY (story_id, chapter_num)
 );

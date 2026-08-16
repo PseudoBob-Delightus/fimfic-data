@@ -2,6 +2,7 @@ use chrono::Utc;
 use pony::averages::SimpleMovingAverage;
 use pony::time::format_milliseconds;
 use rusqlite::Connection;
+use rusqlite::params;
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -135,7 +136,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		story_map.insert(story_id, timestamp);
 	}
 
-	let mut db = setup_database()?;
+	let db = setup_database()?;
 
 	// Simple weighted average times, used for estimating runtime.
 	let mut times = SimpleMovingAverage::<u32>::new(10_000);
@@ -150,7 +151,41 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			"/home/velvetremedy/fimfic/fimfiction-stats/www.fimfiction.net/story/stats/{id}.html"
 		);
 		let html = fs::read_to_string(path).await?;
-		let stats = parse_stats_page(html, *id, *timestamp);
+		let stats = parse_stats_page(html, *id, *timestamp)?;
+
+		db.execute(
+			include_str!("../queries/insert/stat-page.sql"),
+			params![
+				// story data
+				stats.story_data.id,
+				stats.story_data.title,
+				stats.story_data.short_desc,
+				stats.story_data.published,
+				parse_chapter_date(stats.story_data.stats.stats.first_chapter_date)?,
+				parse_chapter_date(stats.story_data.stats.stats.last_chapter_date)?,
+				// author data
+				stats.author_data.id,
+				stats.author_data.name,
+				stats.author_data.image_stub,
+				stats.author_data.bio,
+				stats.author_data.stories,
+				stats.author_data.blogs,
+				stats.author_data.followers,
+				// sidebar data
+				stats.sidebar_stats.views,
+				stats.sidebar_stats.comments,
+				stats.sidebar_stats.ranking,
+				stats.sidebar_stats.word_ranking,
+				stats.sidebar_stats.bookshelves,
+				stats.sidebar_stats.tracking,
+				// page data
+				stats.page_data.timestamp,
+				stats.page_data.page_time,
+				stats.page_data.users_online,
+				stats.page_data.hits_today,
+				stats.page_data.hits_yesterday,
+			],
+		)?;
 
 		if !times.data.is_empty() {
 			let average = times.average().unwrap();
@@ -375,10 +410,17 @@ fn parse_month(month: &str) -> u128 {
 	}
 }
 
+fn parse_chapter_date(date: ChapterDate) -> Result<Option<u32>, Box<dyn Error>> {
+	if let ChapterDate::Text(date) = date {
+		Ok(Some(date.parse::<u32>()?))
+	} else {
+		Ok(None)
+	}
+}
+
 fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	let mut db = Connection::open("./fimfic-stats.db")?;
 	let tx = db.transaction()?;
-	tx.execute(include_str!("../queries/create/story-index.sql"), [])?;
 	tx.execute(include_str!("../queries/create/authors.sql"), [])?;
 	tx.execute(include_str!("../queries/create/stories.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
@@ -389,6 +431,7 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	tx.execute(include_str!("../queries/create/referrals.sql"), [])?;
 	tx.execute(include_str!("../queries/create/also-liked.sql"), [])?;
 	tx.execute(include_str!("../queries/create/similar.sql"), [])?;
+	tx.execute(include_str!("../queries/create/stat-pages.sql"), [])?;
 	tx.commit()?;
 	Ok(db)
 }

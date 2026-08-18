@@ -1,5 +1,7 @@
-use chrono::Utc;
+use chrono::{DateTime, NaiveDate, Utc};
 use pony::averages::SimpleMovingAverage;
+use pony::number_format::format_number_f64;
+use pony::number_format::format_number_u128;
 use pony::time::format_milliseconds;
 use rusqlite::Connection;
 use rusqlite::OptionalExtension;
@@ -7,6 +9,8 @@ use rusqlite::params;
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
@@ -14,7 +18,7 @@ use std::io::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatsPage {
 	pub story_data: StoryData,
 	pub author_data: AuthorData,
@@ -22,7 +26,7 @@ pub struct StatsPage {
 	pub page_data: PageData,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoryData {
 	pub id: u32,
 	pub title: String,
@@ -32,7 +36,7 @@ pub struct StoryData {
 	pub stats: Stats,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoryTag {
 	pub id: u32,
 	pub title: String,
@@ -79,7 +83,7 @@ pub enum ChapterDate {
 	Number(u32),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthorData {
 	pub id: u32,
 	pub name: String,
@@ -90,7 +94,7 @@ pub struct AuthorData {
 	pub followers: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SidebarStats {
 	pub views: u32,
 	pub comments: u32,
@@ -101,7 +105,7 @@ pub struct SidebarStats {
 	pub referrals: HashMap<String, u32>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PageData {
 	pub timestamp: u32,
 	pub page_time: f64,
@@ -137,7 +141,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		story_map.insert(story_id, timestamp);
 	}
 
+	let binding = story_map.clone();
+	let first_date = binding.values().min().unwrap();
+	let first_date = DateTime::from_timestamp_secs(*first_date as i64)
+		.unwrap()
+		.date_naive();
+
 	let mut db = setup_database()?;
+
+	let args: Vec<_> = env::args().collect();
+	if let Some(arg) = args.get(1)
+		&& (arg == "-s" || arg == "-stats")
+	{
+		stats_data(&db, &first_date)?;
+	}
 
 	// Simple weighted average times, used for estimating runtime.
 	let mut times = SimpleMovingAverage::<u32>::new(10_000);
@@ -477,7 +494,7 @@ fn parse_chapter_date(date: ChapterDate) -> Result<Option<u32>, Box<dyn Error>> 
 }
 
 fn setup_database() -> Result<Connection, Box<dyn Error>> {
-	let mut db = Connection::open("./fimfic-stats.db")?;
+	let mut db = Connection::open("/home/velvetremedy/fimfic/fimfic-stats.db")?;
 	let tx = db.transaction()?;
 	tx.execute(include_str!("../queries/create/stat-pages.sql"), [])?;
 	tx.execute(include_str!("../queries/create/tags.sql"), [])?;
@@ -488,4 +505,134 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	tx.execute(include_str!("../queries/create/referrals.sql"), [])?;
 	tx.commit()?;
 	Ok(db)
+}
+
+fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Error>> {
+	let mut data = HashSet::new();
+
+	let mut stmt = db.prepare("SELECT story_id, views, likes, dislikes, date FROM stats;")?;
+	let stats_iter = stmt.query_map([], |row| {
+		Ok(StatsData {
+			views: row.get::<_, Option<u32>>(1)?,
+			likes: row.get::<_, Option<u32>>(2)?,
+			dislikes: row.get::<_, Option<u32>>(3)?,
+			date: row.get::<_, String>(4)?,
+		})
+	})?;
+
+	let mut views = 0;
+	let mut likes = 0;
+	let mut dislikes = 0;
+
+	for stat in stats_iter {
+		let stat = stat?;
+		if first_date <= &NaiveDate::parse_from_str(&stat.date, "%Y-%m-%d")? {
+			continue;
+		}
+		data.insert(stat.date);
+		if let Some(count) = stat.views {
+			views += count;
+		}
+		if let Some(count) = stat.likes {
+			likes += count;
+		}
+		if let Some(count) = stat.dislikes {
+			dislikes += count;
+		}
+	}
+
+	let mut dates: Vec<_> = data.iter().cloned().collect();
+	dates.sort();
+	let first = dates.first().unwrap();
+	let last = dates.last().unwrap();
+	let first = NaiveDate::parse_from_str(first, "%Y-%m-%d")?;
+	let last = NaiveDate::parse_from_str(last, "%Y-%m-%d")?;
+
+	println!("=======================================");
+	println!("Span: {first} - {last}");
+
+	let days = data.len();
+
+	println!(
+		"views - total: {}, average: {}",
+		format_number_u128(views as u128)?,
+		format_number_f64(views as f64 / days as f64, 4)?
+	);
+	println!(
+		"likes - total: {}, average: {}",
+		format_number_u128(likes as u128)?,
+		format_number_f64(likes as f64 / days as f64, 4)?
+	);
+	println!(
+		"dislikes - total: {}, average: {}",
+		format_number_u128(dislikes as u128)?,
+		format_number_f64(dislikes as f64 / days as f64, 4)?
+	);
+
+	for year in 2011..2024 {
+		let mut stmt = db.prepare("SELECT story_id, views, likes, dislikes, date FROM stats;")?;
+		let stats_iter = stmt.query_map([], |row| {
+			Ok(StatsData {
+				views: row.get::<_, Option<u32>>(1)?,
+				likes: row.get::<_, Option<u32>>(2)?,
+				dislikes: row.get::<_, Option<u32>>(3)?,
+				date: row.get::<_, String>(4)?,
+			})
+		})?;
+
+		let mut views = 0;
+		let mut likes = 0;
+		let mut dislikes = 0;
+
+		let mut data = HashSet::new();
+
+		for stat in stats_iter {
+			let stat = stat?;
+			if first_date <= &NaiveDate::parse_from_str(&stat.date, "%Y-%m-%d")? {
+				continue;
+			}
+			if !stat.date.starts_with(&year.to_string()) {
+				continue;
+			}
+			data.insert(stat.date);
+			if let Some(count) = stat.views {
+				views += count;
+			}
+			if let Some(count) = stat.likes {
+				likes += count;
+			}
+			if let Some(count) = stat.dislikes {
+				dislikes += count;
+			}
+		}
+
+		let mut dates: Vec<_> = data.iter().cloned().collect();
+		dates.sort();
+		let first = dates.first().unwrap();
+		let last = dates.last().unwrap();
+		let first = NaiveDate::parse_from_str(first, "%Y-%m-%d")?;
+		let last = NaiveDate::parse_from_str(last, "%Y-%m-%d")?;
+
+		println!("=======================================");
+		println!("Span: {first} - {last}");
+
+		let days = (last - first).num_days();
+
+		println!(
+			"views - total: {}, average: {}",
+			format_number_u128(views as u128)?,
+			format_number_f64(views as f64 / days as f64, 4)?
+		);
+		println!(
+			"likes - total: {}, average: {}",
+			format_number_u128(likes as u128)?,
+			format_number_f64(likes as f64 / days as f64, 4)?
+		);
+		println!(
+			"dislikes - total: {}, average: {}",
+			format_number_u128(dislikes as u128)?,
+			format_number_f64(dislikes as f64 / days as f64, 4)?
+		);
+	}
+	Ok(())
 }

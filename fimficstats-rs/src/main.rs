@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use chrono::{DateTime, NaiveDate, Utc};
 use pony::averages::SimpleMovingAverage;
 use pony::number_format::format_number_f64;
@@ -15,6 +16,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
+use std::process::exit;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
@@ -154,6 +156,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		&& (arg == "-s" || arg == "-stats")
 	{
 		stats_data(&db, &first_date)?;
+		exit(0);
 	}
 
 	// Simple weighted average times, used for estimating runtime.
@@ -617,6 +620,70 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 		println!("Span: {first} - {last}");
 
 		let days = (last - first).num_days();
+
+		println!(
+			"views - total: {}, average: {}",
+			format_number_u128(views as u128)?,
+			format_number_f64(views as f64 / days as f64, 4)?
+		);
+		println!(
+			"likes - total: {}, average: {}",
+			format_number_u128(likes as u128)?,
+			format_number_f64(likes as f64 / days as f64, 4)?
+		);
+		println!(
+			"dislikes - total: {}, average: {}",
+			format_number_u128(dislikes as u128)?,
+			format_number_f64(dislikes as f64 / days as f64, 4)?
+		);
+	}
+
+	for day in [6, 0, 1, 2, 3, 4, 5] {
+		let mut stmt = db.prepare("SELECT story_id, views, likes, dislikes, date FROM stats;")?;
+		let stats_iter = stmt.query_map([], |row| {
+			Ok(StatsData {
+				views: row.get::<_, Option<u32>>(1)?,
+				likes: row.get::<_, Option<u32>>(2)?,
+				dislikes: row.get::<_, Option<u32>>(3)?,
+				date: row.get::<_, String>(4)?,
+			})
+		})?;
+
+		let mut views = 0;
+		let mut likes = 0;
+		let mut dislikes = 0;
+
+		let mut data = HashSet::new();
+
+		for stat in stats_iter {
+			let stat = stat?;
+			let date = &NaiveDate::parse_from_str(&stat.date, "%Y-%m-%d")?;
+			if first_date <= date {
+				continue;
+			}
+			if day != date.weekday() as u8 {
+				continue;
+			}
+			data.insert(stat.date);
+			if let Some(count) = stat.views {
+				views += count;
+			}
+			if let Some(count) = stat.likes {
+				likes += count;
+			}
+			if let Some(count) = stat.dislikes {
+				dislikes += count;
+			}
+		}
+
+		let mut dates: Vec<_> = data.iter().cloned().collect();
+		dates.sort();
+		let first = dates.first().unwrap();
+		let first = NaiveDate::parse_from_str(first, "%Y-%m-%d")?;
+		let days = dates.len();
+
+		println!("=======================================");
+		println!("Day of week: {}, total days: {days}", first.weekday());
 
 		println!(
 			"views - total: {}, average: {}",

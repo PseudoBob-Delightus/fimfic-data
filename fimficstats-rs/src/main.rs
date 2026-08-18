@@ -511,8 +511,6 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 }
 
 fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Error>> {
-	let mut data = HashSet::new();
-
 	let mut stmt = db.prepare("SELECT story_id, views, likes, dislikes, date FROM stats;")?;
 	let stats_iter = stmt.query_map([], |row| {
 		Ok(StatsData {
@@ -523,28 +521,59 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 		})
 	})?;
 
-	let mut views = 0;
-	let mut likes = 0;
-	let mut dislikes = 0;
+	#[derive(Debug, Clone, Default)]
+	pub struct DataStats {
+		pub dates: HashSet<String>,
+		pub views: u32,
+		pub likes: u32,
+		pub dislikes: u32,
+	}
 
-	for stat in stats_iter {
-		let stat = stat?;
-		if first_date <= &NaiveDate::parse_from_str(&stat.date, "%Y-%m-%d")? {
-			continue;
+	pub fn update_data_stat(stats: &mut DataStats, data: &StatsData) {
+		stats.dates.insert(data.date.clone());
+		if let Some(count) = data.views {
+			stats.views += count;
 		}
-		data.insert(stat.date);
-		if let Some(count) = stat.views {
-			views += count;
+		if let Some(count) = data.likes {
+			stats.likes += count;
 		}
-		if let Some(count) = stat.likes {
-			likes += count;
-		}
-		if let Some(count) = stat.dislikes {
-			dislikes += count;
+		if let Some(count) = data.dislikes {
+			stats.dislikes += count;
 		}
 	}
 
-	let mut dates: Vec<_> = data.iter().cloned().collect();
+	let mut total_stats = DataStats::default();
+	let mut year_stats = HashMap::new();
+	let mut weekday_stats = HashMap::new();
+
+	for stat in stats_iter {
+		let stat = stat?;
+		let date = &NaiveDate::parse_from_str(&stat.date, "%Y-%m-%d")?;
+		if first_date <= date {
+			continue;
+		}
+		update_data_stat(&mut total_stats, &stat);
+		let year = date.year();
+		year_stats
+			.entry(year)
+			.and_modify(|data| update_data_stat(data, &stat))
+			.or_insert_with(|| {
+				let mut data = DataStats::default();
+				update_data_stat(&mut data, &stat);
+				data
+			});
+		let weekday = date.weekday();
+		weekday_stats
+			.entry(weekday as i8)
+			.and_modify(|data| update_data_stat(data, &stat))
+			.or_insert_with(|| {
+				let mut data = DataStats::default();
+				update_data_stat(&mut data, &stat);
+				data
+			});
+	}
+
+	let mut dates: Vec<_> = total_stats.dates.iter().cloned().collect();
 	dates.sort();
 	let first = dates.first().unwrap();
 	let last = dates.last().unwrap();
@@ -554,62 +583,28 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 	println!("=======================================");
 	println!("Span: {first} - {last}");
 
-	let days = data.len();
+	let days = total_stats.dates.len();
 
 	println!(
 		"views - total: {}, average: {}",
-		format_number_u128(views as u128)?,
-		format_number_f64(views as f64 / days as f64, 4)?
+		format_number_u128(total_stats.views as u128)?,
+		format_number_f64(total_stats.views as f64 / days as f64, 4)?
 	);
 	println!(
 		"likes - total: {}, average: {}",
-		format_number_u128(likes as u128)?,
-		format_number_f64(likes as f64 / days as f64, 4)?
+		format_number_u128(total_stats.likes as u128)?,
+		format_number_f64(total_stats.likes as f64 / days as f64, 4)?
 	);
 	println!(
 		"dislikes - total: {}, average: {}",
-		format_number_u128(dislikes as u128)?,
-		format_number_f64(dislikes as f64 / days as f64, 4)?
+		format_number_u128(total_stats.dislikes as u128)?,
+		format_number_f64(total_stats.dislikes as f64 / days as f64, 4)?
 	);
 
 	for year in 2011..2024 {
-		let mut stmt = db.prepare("SELECT story_id, views, likes, dislikes, date FROM stats;")?;
-		let stats_iter = stmt.query_map([], |row| {
-			Ok(StatsData {
-				views: row.get::<_, Option<u32>>(1)?,
-				likes: row.get::<_, Option<u32>>(2)?,
-				dislikes: row.get::<_, Option<u32>>(3)?,
-				date: row.get::<_, String>(4)?,
-			})
-		})?;
+		let data = year_stats.get(&year).unwrap();
 
-		let mut views = 0;
-		let mut likes = 0;
-		let mut dislikes = 0;
-
-		let mut data = HashSet::new();
-
-		for stat in stats_iter {
-			let stat = stat?;
-			if first_date <= &NaiveDate::parse_from_str(&stat.date, "%Y-%m-%d")? {
-				continue;
-			}
-			if !stat.date.starts_with(&year.to_string()) {
-				continue;
-			}
-			data.insert(stat.date);
-			if let Some(count) = stat.views {
-				views += count;
-			}
-			if let Some(count) = stat.likes {
-				likes += count;
-			}
-			if let Some(count) = stat.dislikes {
-				dislikes += count;
-			}
-		}
-
-		let mut dates: Vec<_> = data.iter().cloned().collect();
+		let mut dates: Vec<_> = data.dates.iter().cloned().collect();
 		dates.sort();
 		let first = dates.first().unwrap();
 		let last = dates.last().unwrap();
@@ -623,60 +618,24 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 
 		println!(
 			"views - total: {}, average: {}",
-			format_number_u128(views as u128)?,
-			format_number_f64(views as f64 / days as f64, 4)?
+			format_number_u128(data.views as u128)?,
+			format_number_f64(data.views as f64 / days as f64, 4)?
 		);
 		println!(
 			"likes - total: {}, average: {}",
-			format_number_u128(likes as u128)?,
-			format_number_f64(likes as f64 / days as f64, 4)?
+			format_number_u128(data.likes as u128)?,
+			format_number_f64(data.likes as f64 / days as f64, 4)?
 		);
 		println!(
 			"dislikes - total: {}, average: {}",
-			format_number_u128(dislikes as u128)?,
-			format_number_f64(dislikes as f64 / days as f64, 4)?
+			format_number_u128(data.dislikes as u128)?,
+			format_number_f64(data.dislikes as f64 / days as f64, 4)?
 		);
 	}
 
 	for day in [6, 0, 1, 2, 3, 4, 5] {
-		let mut stmt = db.prepare("SELECT story_id, views, likes, dislikes, date FROM stats;")?;
-		let stats_iter = stmt.query_map([], |row| {
-			Ok(StatsData {
-				views: row.get::<_, Option<u32>>(1)?,
-				likes: row.get::<_, Option<u32>>(2)?,
-				dislikes: row.get::<_, Option<u32>>(3)?,
-				date: row.get::<_, String>(4)?,
-			})
-		})?;
-
-		let mut views = 0;
-		let mut likes = 0;
-		let mut dislikes = 0;
-
-		let mut data = HashSet::new();
-
-		for stat in stats_iter {
-			let stat = stat?;
-			let date = &NaiveDate::parse_from_str(&stat.date, "%Y-%m-%d")?;
-			if first_date <= date {
-				continue;
-			}
-			if day != date.weekday() as u8 {
-				continue;
-			}
-			data.insert(stat.date);
-			if let Some(count) = stat.views {
-				views += count;
-			}
-			if let Some(count) = stat.likes {
-				likes += count;
-			}
-			if let Some(count) = stat.dislikes {
-				dislikes += count;
-			}
-		}
-
-		let mut dates: Vec<_> = data.iter().cloned().collect();
+		let data = weekday_stats.get(&day).unwrap();
+		let mut dates: Vec<_> = data.dates.iter().cloned().collect();
 		dates.sort();
 		let first = dates.first().unwrap();
 		let first = NaiveDate::parse_from_str(first, "%Y-%m-%d")?;
@@ -687,18 +646,18 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 
 		println!(
 			"views - total: {}, average: {}",
-			format_number_u128(views as u128)?,
-			format_number_f64(views as f64 / days as f64, 4)?
+			format_number_u128(data.views as u128)?,
+			format_number_f64(data.views as f64 / days as f64, 4)?
 		);
 		println!(
 			"likes - total: {}, average: {}",
-			format_number_u128(likes as u128)?,
-			format_number_f64(likes as f64 / days as f64, 4)?
+			format_number_u128(data.likes as u128)?,
+			format_number_f64(data.likes as f64 / days as f64, 4)?
 		);
 		println!(
 			"dislikes - total: {}, average: {}",
-			format_number_u128(dislikes as u128)?,
-			format_number_f64(dislikes as f64 / days as f64, 4)?
+			format_number_u128(data.dislikes as u128)?,
+			format_number_f64(data.dislikes as f64 / days as f64, 4)?
 		);
 	}
 	Ok(())

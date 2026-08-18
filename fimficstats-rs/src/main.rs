@@ -17,7 +17,6 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::process::exit;
-use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
@@ -594,6 +593,73 @@ fn story_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 			"total views - total: {}, average: {}",
 			format_number_u128(total_views_total as u128)?,
 			format_number_f64(total_views_total as f64 / count as f64, 4)?
+		);
+	}
+
+	let mut stmt = db.prepare(
+		"SELECT date_published, length(title), comments, bookshelves, tracking FROM stat_pages WHERE date_published IS NOT NULL;",
+	)?;
+	let stats_iter = stmt.query_map([], |row| {
+		Ok((
+			row.get::<_, String>(0)?,
+			row.get::<_, u32>(1)?,
+			row.get::<_, u32>(2)?,
+			row.get::<_, u32>(3)?,
+			row.get::<_, u32>(4)?,
+		))
+	})?;
+	let mut story_data = HashMap::new();
+	for stats in stats_iter {
+		let (date, title_len, comments, bookshelves, tracking) = stats?;
+		let date = &NaiveDate::parse_from_str(&date, "%Y-%m-%d")?;
+		if first_date <= date {
+			continue;
+		}
+		story_data
+			.entry(date.year())
+			.and_modify(|data: &mut Vec<_>| data.push((title_len, comments, bookshelves, tracking)))
+			.or_insert_with(|| vec![(title_len, comments, bookshelves, tracking)]);
+	}
+
+	for year in 2011..2024 {
+		let data = story_data.get(&year).unwrap();
+		let story_count = data.len();
+		let mut title_length = 0;
+		let mut comments = 0;
+		let mut bookshelves = 0;
+		let mut tracking = 0;
+
+		for story in data {
+			title_length += story.0;
+			comments += story.1;
+			bookshelves += story.2;
+			tracking += story.3;
+		}
+
+		println!("=======================================");
+		println!(
+			"Year: {year}, total stories: {}",
+			format_number_u128(story_count as u128)?
+		);
+		println!(
+			"title length - total: {}, average: {}",
+			format_number_u128(title_length as u128)?,
+			format_number_f64(title_length as f64 / story_count as f64, 4)?
+		);
+		println!(
+			"comments - total: {}, average: {}",
+			format_number_u128(comments as u128)?,
+			format_number_f64(comments as f64 / story_count as f64, 4)?
+		);
+		println!(
+			"bookshelves - total: {}, average: {}",
+			format_number_u128(bookshelves as u128)?,
+			format_number_f64(bookshelves as f64 / story_count as f64, 4)?
+		);
+		println!(
+			"tracking - total: {}, average: {}",
+			format_number_u128(tracking as u128)?,
+			format_number_f64(tracking as f64 / story_count as f64, 4)?
 		);
 	}
 

@@ -523,14 +523,12 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 
 	#[derive(Debug, Clone, Default)]
 	pub struct DataStats {
-		pub dates: HashSet<String>,
 		pub views: u32,
 		pub likes: u32,
 		pub dislikes: u32,
 	}
 
 	pub fn update_data_stat(stats: &mut DataStats, data: &StatsData) {
-		stats.dates.insert(data.date.clone());
 		if let Some(count) = data.views {
 			stats.views += count;
 		}
@@ -542,6 +540,7 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 		}
 	}
 
+	let mut dates = HashSet::new();
 	let mut total_stats = DataStats::default();
 	let mut year_stats = HashMap::new();
 	let mut weekday_stats = HashMap::new();
@@ -552,6 +551,7 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 		if first_date <= date {
 			continue;
 		}
+		dates.insert(stat.date.clone());
 		update_data_stat(&mut total_stats, &stat);
 		let year = date.year();
 		year_stats
@@ -573,7 +573,7 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 			});
 	}
 
-	let mut dates: Vec<_> = total_stats.dates.iter().cloned().collect();
+	let mut dates: Vec<_> = dates.iter().cloned().collect();
 	dates.sort();
 	let first = dates.first().unwrap();
 	let last = dates.last().unwrap();
@@ -583,7 +583,7 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 	println!("=======================================");
 	println!("Span: {first} - {last}");
 
-	let days = total_stats.dates.len();
+	let days = dates.len();
 
 	println!(
 		"views - total: {}, average: {}",
@@ -604,7 +604,11 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 	for year in 2011..2024 {
 		let data = year_stats.get(&year).unwrap();
 
-		let mut dates: Vec<_> = data.dates.iter().cloned().collect();
+		let mut dates: Vec<_> = dates
+			.iter()
+			.filter(|&date| date.starts_with(&year.to_string()))
+			.cloned()
+			.collect();
 		dates.sort();
 		let first = dates.first().unwrap();
 		let last = dates.last().unwrap();
@@ -635,7 +639,16 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 
 	for day in [6, 0, 1, 2, 3, 4, 5] {
 		let data = weekday_stats.get(&day).unwrap();
-		let mut dates: Vec<_> = data.dates.iter().cloned().collect();
+		let mut dates: Vec<_> = dates
+			.iter()
+			.filter(|&date| {
+				NaiveDate::parse_from_str(date, "%Y-%m-%d")
+					.unwrap()
+					.weekday() as i8
+					== day
+			})
+			.cloned()
+			.collect();
 		dates.sort();
 		let first = dates.first().unwrap();
 		let first = NaiveDate::parse_from_str(first, "%Y-%m-%d")?;

@@ -1,5 +1,5 @@
-use chrono::Datelike;
 use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{Datelike, Weekday};
 use pony::averages::SimpleMovingAverage;
 use pony::number_format::format_number_f64;
 use pony::number_format::format_number_u128;
@@ -17,6 +17,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::process::exit;
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
@@ -116,6 +117,13 @@ pub struct PageData {
 	pub hits_yesterday: u32,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct DataStats {
+	pub views: u32,
+	pub likes: u32,
+	pub dislikes: u32,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	println!("Program started at: {}", Utc::now());
@@ -155,7 +163,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	if let Some(arg) = args.get(1)
 		&& (arg == "-s" || arg == "-stats")
 	{
+		story_data(&db, &first_date)?;
 		stats_data(&db, &first_date)?;
+		let program_end = unix_time()?;
+		let time = format_milliseconds(program_end - program_start, None)?;
+		println!("Total runtime: {time}");
+		println!("Program ended at: {}", Utc::now());
 		exit(0);
 	}
 
@@ -510,6 +523,83 @@ fn setup_database() -> Result<Connection, Box<dyn Error>> {
 	Ok(db)
 }
 
+pub fn update_data_stat(stats: &mut DataStats, data: &StatsData) {
+	if let Some(count) = data.views {
+		stats.views += count;
+	}
+	if let Some(count) = data.likes {
+		stats.likes += count;
+	}
+	if let Some(count) = data.dislikes {
+		stats.dislikes += count;
+	}
+}
+
+fn story_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Error>> {
+	let mut stmt = db.prepare(
+		"SELECT story_id, date_published, views FROM stat_pages WHERE date_published IS NOT NULL;",
+	)?;
+	let stats_iter = stmt.query_map([], |row| {
+		Ok((
+			row.get::<_, u32>(0)?,
+			row.get::<_, String>(1)?,
+			row.get::<_, u32>(2)?,
+		))
+	})?;
+
+	let mut story_data = HashMap::new();
+
+	for data in stats_iter {
+		let (story_id, publish_date, views) = data?;
+		let date = &NaiveDate::parse_from_str(&publish_date, "%Y-%m-%d")?;
+		if first_date <= date {
+			continue;
+		}
+		let mut stmt = db.prepare("SELECT views FROM chapters WHERE story_id = :id;")?;
+		let stats_iter = stmt.query_map(&[(":id", &story_id.to_string())], |row| {
+			row.get::<_, u32>(0)
+		})?;
+		let mut total = 0;
+		for chapter in stats_iter {
+			total += chapter?;
+		}
+		let weekday = date.weekday();
+		story_data
+			.entry(weekday as u8)
+			.and_modify(|data: &mut Vec<_>| data.push((views, total)))
+			.or_insert_with(|| vec![(views, total)]);
+	}
+
+	for day in [6, 0, 1, 2, 3, 4, 5] {
+		let data = story_data.get(&day).unwrap();
+		let count = data.len();
+		let mut views_total = 0;
+		let mut total_views_total = 0;
+		for (views, total_views) in data {
+			views_total += views;
+			total_views_total += total_views;
+		}
+		println!("=======================================");
+		println!(
+			"Day of week: {}, total stories: {}",
+			Weekday::try_from(day)?,
+			format_number_u128(count as u128)?
+		);
+		println!(
+			"views - total: {}, average: {}",
+			format_number_u128(views_total as u128)?,
+			format_number_f64(views_total as f64 / count as f64, 4)?
+		);
+		println!(
+			"total views - total: {}, average: {}",
+			format_number_u128(total_views_total as u128)?,
+			format_number_f64(total_views_total as f64 / count as f64, 4)?
+		);
+	}
+
+	Ok(())
+}
+
 fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Error>> {
 	let mut stmt = db.prepare("SELECT story_id, views, likes, dislikes, date FROM stats;")?;
 	let stats_iter = stmt.query_map([], |row| {
@@ -520,25 +610,6 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 			date: row.get::<_, String>(4)?,
 		})
 	})?;
-
-	#[derive(Debug, Clone, Default)]
-	pub struct DataStats {
-		pub views: u32,
-		pub likes: u32,
-		pub dislikes: u32,
-	}
-
-	pub fn update_data_stat(stats: &mut DataStats, data: &StatsData) {
-		if let Some(count) = data.views {
-			stats.views += count;
-		}
-		if let Some(count) = data.likes {
-			stats.likes += count;
-		}
-		if let Some(count) = data.dislikes {
-			stats.dislikes += count;
-		}
-	}
 
 	let mut dates = HashSet::new();
 	let mut total_stats = DataStats::default();

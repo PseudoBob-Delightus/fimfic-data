@@ -535,22 +535,27 @@ pub fn update_data_stat(stats: &mut DataStats, data: &StatsData) {
 }
 
 fn story_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Error>> {
-	let mut stmt = db.prepare(
-		"SELECT story_id, date_published, views FROM stat_pages WHERE date_published IS NOT NULL;",
-	)?;
+	let mut stmt =
+		db.prepare("SELECT story_id, date_published, first_chapter_date, views FROM stat_pages;")?;
 	let stats_iter = stmt.query_map([], |row| {
 		Ok((
 			row.get::<_, u32>(0)?,
-			row.get::<_, String>(1)?,
-			row.get::<_, u32>(2)?,
+			row.get::<_, Option<String>>(1)?,
+			row.get::<_, Option<i64>>(2)?,
+			row.get::<_, u32>(3)?,
 		))
 	})?;
 
 	let mut story_data = HashMap::new();
 
 	for data in stats_iter {
-		let (story_id, publish_date, views) = data?;
-		let date = &NaiveDate::parse_from_str(&publish_date, "%Y-%m-%d")?;
+		let (story_id, date, chapter_date, views) = data?;
+		let date = match date {
+			Some(date) => &NaiveDate::parse_from_str(&date, "%Y-%m-%d")?,
+			None => &DateTime::from_timestamp_secs(chapter_date.unwrap())
+				.unwrap()
+				.date_naive(),
+		};
 		if first_date <= date {
 			continue;
 		}
@@ -597,21 +602,27 @@ fn story_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 	}
 
 	let mut stmt = db.prepare(
-		"SELECT date_published, length(title), comments, bookshelves, tracking FROM stat_pages WHERE date_published IS NOT NULL;",
+		"SELECT date_published, first_chapter_date, length(title), comments, bookshelves, tracking FROM stat_pages;",
 	)?;
 	let stats_iter = stmt.query_map([], |row| {
 		Ok((
-			row.get::<_, String>(0)?,
-			row.get::<_, u32>(1)?,
+			row.get::<_, Option<String>>(0)?,
+			row.get::<_, Option<i64>>(1)?,
 			row.get::<_, u32>(2)?,
 			row.get::<_, u32>(3)?,
 			row.get::<_, u32>(4)?,
+			row.get::<_, u32>(5)?,
 		))
 	})?;
 	let mut story_data = HashMap::new();
 	for stats in stats_iter {
-		let (date, title_len, comments, bookshelves, tracking) = stats?;
-		let date = &NaiveDate::parse_from_str(&date, "%Y-%m-%d")?;
+		let (date, chapter_date, title_len, comments, bookshelves, tracking) = stats?;
+		let date = match date {
+			Some(date) => &NaiveDate::parse_from_str(&date, "%Y-%m-%d")?,
+			None => &DateTime::from_timestamp_secs(chapter_date.unwrap())
+				.unwrap()
+				.date_naive(),
+		};
 		if first_date <= date {
 			continue;
 		}

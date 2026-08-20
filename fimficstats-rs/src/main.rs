@@ -689,7 +689,9 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 	})?;
 
 	let mut story_years = HashMap::new();
+	let mut story_tags = HashMap::new();
 
+	let mut stmt = db.prepare("SELECT tag_id FROM tag_links WHERE story_id = :id;")?;
 	for stat in stats_iter {
 		let (story_id, date, chapter_date) = stat?;
 		let date = match date {
@@ -698,6 +700,13 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 				.unwrap()
 				.date_naive(),
 		};
+		let tags = stmt
+			.query_map(&[(":id", &story_id.to_string())], |row| {
+				row.get::<_, u32>(0)
+			})?
+			.map(|stat| stat.unwrap())
+			.collect::<Vec<_>>();
+		story_tags.insert(story_id, tags);
 		story_years.insert(story_id, date.year());
 	}
 
@@ -720,6 +729,7 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 	let mut weekday_stats = HashMap::new();
 	let mut view_year_stats = HashMap::new();
 	let mut story_year_stats = HashMap::new();
+	let mut tag_year_stats = HashMap::new();
 
 	for stat in stats_iter {
 		let (story_id, stat) = stat?;
@@ -784,6 +794,27 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 				year_map.insert(story_id, data);
 				year_map
 			});
+		let tags = story_tags.get(&story_id).unwrap();
+		for tag_id in tags {
+			tag_year_stats
+				.entry(year)
+				.and_modify(|data: &mut HashMap<_, _>| {
+					data.entry(tag_id)
+						.and_modify(|data| update_data_stat(data, &stat))
+						.or_insert_with(|| {
+							let mut data = DataStats::default();
+							update_data_stat(&mut data, &stat);
+							data
+						});
+				})
+				.or_insert_with(|| {
+					let mut data = DataStats::default();
+					update_data_stat(&mut data, &stat);
+					let mut tag_map = HashMap::new();
+					tag_map.insert(tag_id, data);
+					tag_map
+				});
+		}
 	}
 
 	let mut dates: Vec<_> = dates.iter().cloned().collect();
@@ -869,6 +900,54 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 			println!("Top {} story by dislikes: {title}", i + 1);
 			println!(
 				"\tviews: {}, likes: {}, dislikes: {}, published: {publish_year}",
+				stats.views, stats.likes, stats.dislikes
+			)
+		}
+
+		let tag_data = tag_year_stats.get(&year).unwrap();
+		let mut tag_data = tag_data.iter().collect::<Vec<_>>();
+		tag_data.sort_by_key(|(_, stat)| stat.views);
+		tag_data.reverse();
+		let views_25 = tag_data.iter().take(25);
+		println!("=======================================");
+		for (i, (tag_id, stats)) in views_25.enumerate() {
+			let mut stmt = db.prepare("SELECT text FROM tags WHERE id = :id LIMIT 1;")?;
+			let text = stmt.query_one(&[(":id", &tag_id.to_string())], |row| {
+				row.get::<_, String>(0)
+			})?;
+			println!("Top {} tag by views: {text}", i + 1);
+			println!(
+				"\tviews: {}, likes: {}, dislikes: {}",
+				stats.views, stats.likes, stats.dislikes
+			)
+		}
+		tag_data.sort_by_key(|(_, stat)| stat.likes);
+		tag_data.reverse();
+		let likes_25 = tag_data.iter().take(25);
+		println!("=======================================");
+		for (i, (tag_id, stats)) in likes_25.enumerate() {
+			let mut stmt = db.prepare("SELECT text FROM tags WHERE id = :id LIMIT 1;")?;
+			let title = stmt.query_one(&[(":id", &tag_id.to_string())], |row| {
+				row.get::<_, String>(0)
+			})?;
+			println!("Top {} tag by likes: {title}", i + 1);
+			println!(
+				"\tviews: {}, likes: {}, dislikes: {}",
+				stats.views, stats.likes, stats.dislikes
+			)
+		}
+		tag_data.sort_by_key(|(_, stat)| stat.dislikes);
+		tag_data.reverse();
+		let dislikes_25 = tag_data.iter().take(25);
+		println!("=======================================");
+		for (i, (tag_id, stats)) in dislikes_25.enumerate() {
+			let mut stmt = db.prepare("SELECT text FROM tags WHERE id = :id LIMIT 1;")?;
+			let title = stmt.query_one(&[(":id", &tag_id.to_string())], |row| {
+				row.get::<_, String>(0)
+			})?;
+			println!("Top {} tag by dislikes: {title}", i + 1);
+			println!(
+				"\tviews: {}, likes: {}, dislikes: {}",
 				stats.views, stats.likes, stats.dislikes
 			)
 		}

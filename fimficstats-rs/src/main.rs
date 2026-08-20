@@ -667,23 +667,50 @@ fn story_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 }
 
 fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Error>> {
+	let mut stmt =
+		db.prepare("SELECT story_id, date_published, first_chapter_date FROM stat_pages;")?;
+	let stats_iter = stmt.query_map([], |row| {
+		Ok((
+			row.get::<_, u32>(0)?,
+			row.get::<_, Option<String>>(1)?,
+			row.get::<_, Option<i64>>(2)?,
+		))
+	})?;
+
+	let mut story_years = HashMap::new();
+
+	for stat in stats_iter {
+		let (story_id, date, chapter_date) = stat?;
+		let date = match date {
+			Some(date) => &NaiveDate::parse_from_str(&date, "%Y-%m-%d")?,
+			None => &DateTime::from_timestamp_secs(chapter_date.unwrap())
+				.unwrap()
+				.date_naive(),
+		};
+		story_years.insert(story_id, date.year());
+	}
+
 	let mut stmt = db.prepare("SELECT story_id, views, likes, dislikes, date FROM stats;")?;
 	let stats_iter = stmt.query_map([], |row| {
-		Ok(StatsData {
-			views: row.get::<_, Option<u32>>(1)?,
-			likes: row.get::<_, Option<u32>>(2)?,
-			dislikes: row.get::<_, Option<u32>>(3)?,
-			date: row.get::<_, String>(4)?,
-		})
+		Ok((
+			row.get::<_, u32>(0)?,
+			StatsData {
+				views: row.get::<_, Option<u32>>(1)?,
+				likes: row.get::<_, Option<u32>>(2)?,
+				dislikes: row.get::<_, Option<u32>>(3)?,
+				date: row.get::<_, String>(4)?,
+			},
+		))
 	})?;
 
 	let mut dates = HashSet::new();
 	let mut total_stats = DataStats::default();
 	let mut year_stats = HashMap::new();
 	let mut weekday_stats = HashMap::new();
+	let mut view_year_stats = HashMap::new();
 
 	for stat in stats_iter {
-		let stat = stat?;
+		let (story_id, stat) = stat?;
 		let date = &NaiveDate::parse_from_str(&stat.date, "%Y-%m-%d")?;
 		if first_date <= date {
 			continue;
@@ -707,6 +734,25 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 				let mut data = DataStats::default();
 				update_data_stat(&mut data, &stat);
 				data
+			});
+		let publish_year = story_years.get(&story_id).unwrap();
+		view_year_stats
+			.entry(year)
+			.and_modify(|data: &mut HashMap<_, _>| {
+				data.entry(publish_year)
+					.and_modify(|data| update_data_stat(data, &stat))
+					.or_insert_with(|| {
+						let mut data = DataStats::default();
+						update_data_stat(&mut data, &stat);
+						data
+					});
+			})
+			.or_insert_with(|| {
+				let mut data = DataStats::default();
+				update_data_stat(&mut data, &stat);
+				let mut year_map = HashMap::new();
+				year_map.insert(publish_year, data);
+				year_map
 			});
 	}
 
@@ -740,6 +786,9 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 
 	for year in 2011..2024 {
 		let data = year_stats.get(&year).unwrap();
+		let publish_data = view_year_stats.get(&year).unwrap();
+		let mut publish_data = publish_data.iter().collect::<Vec<_>>();
+		publish_data.sort_by_key(|(year, _)| *year);
 
 		let mut dates: Vec<_> = dates
 			.iter()
@@ -763,14 +812,53 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 			format_number_f64(data.views as f64 / days as f64, 4)?
 		);
 		println!(
+			"views by year:\n\t{}",
+			publish_data
+				.iter()
+				.map(|(year, stats)| format!(
+					"{year}: {}%, total: {}",
+					format_number_f64(stats.views as f64 / data.views as f64 * 100.0, 4).unwrap(),
+					format_number_u128(stats.views as u128).unwrap(),
+				))
+				.collect::<Vec<_>>()
+				.join("\n\t")
+		);
+
+		println!(
 			"likes - total: {}, average: {}",
 			format_number_u128(data.likes as u128)?,
 			format_number_f64(data.likes as f64 / days as f64, 4)?
 		);
 		println!(
+			"likes by year:\n\t{}",
+			publish_data
+				.iter()
+				.map(|(year, stats)| format!(
+					"{year}: {}%, total: {}",
+					format_number_f64(stats.likes as f64 / data.likes as f64 * 100.0, 4).unwrap(),
+					format_number_u128(stats.likes as u128).unwrap(),
+				))
+				.collect::<Vec<_>>()
+				.join("\n\t")
+		);
+
+		println!(
 			"dislikes - total: {}, average: {}",
 			format_number_u128(data.dislikes as u128)?,
 			format_number_f64(data.dislikes as f64 / days as f64, 4)?
+		);
+		println!(
+			"dislikes by year:\n\t{}",
+			publish_data
+				.iter()
+				.map(|(year, stats)| format!(
+					"{year}: {}%, total: {}",
+					format_number_f64(stats.dislikes as f64 / data.dislikes as f64 * 100.0, 4)
+						.unwrap(),
+					format_number_u128(stats.dislikes as u128).unwrap(),
+				))
+				.collect::<Vec<_>>()
+				.join("\n\t")
 		);
 	}
 

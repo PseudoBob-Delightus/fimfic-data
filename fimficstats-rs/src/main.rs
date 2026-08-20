@@ -719,6 +719,7 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 	let mut year_stats = HashMap::new();
 	let mut weekday_stats = HashMap::new();
 	let mut view_year_stats = HashMap::new();
+	let mut story_year_stats = HashMap::new();
 
 	for stat in stats_iter {
 		let (story_id, stat) = stat?;
@@ -765,6 +766,24 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 				year_map.insert(publish_year, data);
 				year_map
 			});
+		story_year_stats
+			.entry(year)
+			.and_modify(|data: &mut HashMap<_, _>| {
+				data.entry(story_id)
+					.and_modify(|data| update_data_stat(data, &stat))
+					.or_insert_with(|| {
+						let mut data = DataStats::default();
+						update_data_stat(&mut data, &stat);
+						data
+					});
+			})
+			.or_insert_with(|| {
+				let mut data = DataStats::default();
+				update_data_stat(&mut data, &stat);
+				let mut year_map = HashMap::new();
+				year_map.insert(story_id, data);
+				year_map
+			});
 	}
 
 	let mut dates: Vec<_> = dates.iter().cloned().collect();
@@ -800,6 +819,59 @@ fn stats_data(db: &Connection, first_date: &NaiveDate) -> Result<(), Box<dyn Err
 		let publish_data = view_year_stats.get(&year).unwrap();
 		let mut publish_data = publish_data.iter().collect::<Vec<_>>();
 		publish_data.sort_by_key(|(year, _)| *year);
+		let story_data = story_year_stats.get(&year).unwrap();
+		let mut story_data = story_data.iter().collect::<Vec<_>>();
+		story_data.sort_by_key(|(_, stat)| stat.views);
+		story_data.reverse();
+		let views_25 = story_data.iter().take(25);
+		println!("=======================================");
+		for (i, (story_id, stats)) in views_25.enumerate() {
+			let publish_year = story_years.get(*story_id).unwrap();
+			let mut stmt =
+				db.prepare("SELECT title FROM stat_pages WHERE story_id = :story_id LIMIT 1;")?;
+			let title = stmt.query_one(&[(":story_id", &story_id.to_string())], |row| {
+				row.get::<_, String>(0)
+			})?;
+			println!("Top {} story by views: {title}", i + 1);
+			println!(
+				"\tviews: {}, likes: {}, dislikes: {}, published: {publish_year}",
+				stats.views, stats.likes, stats.dislikes
+			)
+		}
+		story_data.sort_by_key(|(_, stat)| stat.likes);
+		story_data.reverse();
+		let likes_25 = story_data.iter().take(25);
+		println!("=======================================");
+		for (i, (story_id, stats)) in likes_25.enumerate() {
+			let publish_year = story_years.get(*story_id).unwrap();
+			let mut stmt =
+				db.prepare("SELECT title FROM stat_pages WHERE story_id = :story_id LIMIT 1;")?;
+			let title = stmt.query_one(&[(":story_id", &story_id.to_string())], |row| {
+				row.get::<_, String>(0)
+			})?;
+			println!("Top {} story by likes: {title}", i + 1);
+			println!(
+				"\tviews: {}, likes: {}, dislikes: {}, published: {publish_year}",
+				stats.views, stats.likes, stats.dislikes
+			)
+		}
+		story_data.sort_by_key(|(_, stat)| stat.dislikes);
+		story_data.reverse();
+		let dislikes_25 = story_data.iter().take(25);
+		println!("=======================================");
+		for (i, (story_id, stats)) in dislikes_25.enumerate() {
+			let publish_year = story_years.get(*story_id).unwrap();
+			let mut stmt =
+				db.prepare("SELECT title FROM stat_pages WHERE story_id = :story_id LIMIT 1;")?;
+			let title = stmt.query_one(&[(":story_id", &story_id.to_string())], |row| {
+				row.get::<_, String>(0)
+			})?;
+			println!("Top {} story by dislikes: {title}", i + 1);
+			println!(
+				"\tviews: {}, likes: {}, dislikes: {}, published: {publish_year}",
+				stats.views, stats.likes, stats.dislikes
+			)
+		}
 
 		let mut dates: Vec<_> = dates
 			.iter()

@@ -17,3 +17,4 @@ test_all.bat
 # Fimfic Stats
 /fimficstats/bun.lockb
 /fimficstats/node_modules
+/fimficstats/graph-Data

@@ -1,0 +1,31 @@
+[package]
+name = "fimfic-stats"
+version = "0.1.0"
+description = "CLI tools for scraping statistics from FIMFiction."
+repository = "https://github.com/PseudoBob-Delightus/fimfic-data"
+authors = ["Silk Rose", "Meadowsys"]
+edition = "2024"
+license = "MIT"
+publish = false
+
+[dependencies]
+chrono = { version = "0.4.45" }
+pony = { git = "https://github.com/SilkRose/Pony" }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+scraper = { version = "0.27.0" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151", features = ["preserve_order"] }
+tokio = { version = "1.53.1", features = ["full"] }
+
+[profile.dev]
+opt-level = 0
+debug-assertions = true
+debug = true
+incremental = true
+
+[profile.release]
+strip = true
+opt-level = 3
+debug-assertions = false
+lto = true
+codegen-units = 1

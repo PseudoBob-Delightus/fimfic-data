@@ -7,8 +7,14 @@
 
 # Database
 *.db
+*.db-journal
 
 # User-specific
 login_metadata.json
 autorun.bat
 test_all.bat
+
+# Fimfic Stats
+/fimficstats/bun.lockb
+/fimficstats/node_modules
+/fimficstats/graph-Data

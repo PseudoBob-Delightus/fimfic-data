@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS Completion_status (
+	id     INTEGER PRIMARY KEY AUTOINCREMENT,
+	status TEXT    NOT NULL    UNIQUE
+);
